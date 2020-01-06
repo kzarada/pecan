@@ -14,37 +14,11 @@ plan(multiprocess)
 # ----------------------------------------------------------------------------------------------
 #------------------------------------------ That's all we need xml path and the out folder -----
 # ----------------------------------------------------------------------------------------------
-args = c("/fs/data3/kzarada/ouput", FALSE, "gefs.sipnet.template.xml", TRUE, 3)
-
-if (is.na(args[1])){
-  outputPath <- "/fs/data3/kzarada/ouput"
-} else {
-  outputPath <- args[1]
-}
-
-if (is.na(args[2])){
-  nodata <- FALSE
-} else {
-  nodata <-as.logical(args[2])
-}
-
-if (is.na(args[3])){
-  xmlTempName <-"gefs.sipnet.template.xml"
-} else {
-  xmlTempName <- args[3]
-}
-
-if (is.na(args[4])){
-  restart <-TRUE
-} else {
-  restart <- args[4]
-}
-
-if (is.na(args[5])){
-  days.obs <- 3  #how many of observed data to include -- not including today
-} else {
- days.obs <- as.numeric(args[5])
-}
+outputPath <- "/fs/data3/kzarada/ouput"
+nodata <- FALSE
+xmlTempName <-"gefs.sipnet.template.xml"
+restart <-TRUE
+days.obs <- 3  #how many of observed data to include -- not including today
 
 setwd(outputPath)
 #------------------------------------------------------------------------------------------------
@@ -71,6 +45,7 @@ con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
 #------------------------------------------------------------------------------------------------
 #--------------------------- Finding old sims
 all.previous.sims <- list.dirs(outputPath, recursive = F)
+all.previous.sims <- all.previous.sims[-c(which(all.previous.sims == "/fs/data3/kzarada/ouput/LAI_Reanalysis"),which(all.previous.sims == "/fs/data3/kzarada/ouput/Reanalysis"))] 
 if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
   
   tryCatch({
@@ -159,6 +134,29 @@ prep.data <- prep.data %>%
 met.start <- obs.raw$Date%>% head(1) %>% lubridate::floor_date(unit = "day")
 met.end <- met.start + lubridate::days(16)
 
+# Download MODIS LAI Data 
+tryCatch({
+  lai <- call_MODIS(outfolder = '/fs/data3/kzarada/NEFI/MODIS/', 
+                  start_date = paste0(lubridate::year(met.start), strftime(met.start, format = "%j")),
+                  end_date = paste0(lubridate::year(met.end), strftime(met.end, format = "%j")), 
+                  lat = 45.805925,
+                  lon = -90.07961, 
+                  size = 0, 
+                  product = "MOD15A2H", 
+                  band = "Lai_500m", 
+                  band_qc = "FparLai_QC", 
+                  band_sd = "LaiStdDev_500m",
+                  siteID = NULL, 
+                  package_method = "MODISTools", 
+                  QC_filter = FALSE,
+                  progress = TRUE)}, 
+  error = function(e) {
+                  lai <- NA
+                  PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates",conditionMessage(e)))
+                }
+    )
+if(!exists('lai')){lai = NA}
+  
 #pad Observed Data to match met data 
 
 date <-
@@ -180,9 +178,9 @@ pad.prep <- obs.raw %>%
 names(pad.prep) <-date
 
 #create the data type to match the other data 
-pad.cov <- matrix(data = c(rep(NA, 4)), nrow = 2, ncol = 2, dimnames = list(c("NEE", "Qle"), c("NEE", "Qle")))
-pad.means = c(NA, NA)
-names(pad.means) <- c("NEE", "Qle")
+pad.cov <- matrix(data = c(NA, NA, NA, NA, NA, NA, NA, NA, NA ), nrow = 3, ncol = 3, dimnames = list(c("NEE", "Qle", "LAI"), c("NEE", "Qle", "LAI")))
+pad.means = c(NA, NA, NA)
+names(pad.means) <- c("NEE", "Qle", "LAI")
 
 #cycle through and populate the list 
 
@@ -194,6 +192,30 @@ pad <- pad.prep %>%
           })
 
 
+#Add in LAI info 
+
+if(is.null(lai)){index <- rep(FALSE, length(names(prep.data)))}else{
+  index <- as.Date(names(prep.data)) %in% as.Date(lai$calendar_date)
+}
+
+
+for(i in 1:length(index)){
+  
+  if(index[i]){
+    LAI <- c(0,0)
+    prep.data[[i]]$means <- c(prep.data[[i]]$means, lai$data[1])
+    prep.data[[i]]$covs <- rbind(cbind(prep.data[[i]]$covs, c(0, 0)), c(0,0, lai$sd[1]))
+    
+    
+  }else{prep.data[[i]]$means <- c(prep.data[[i]]$means, NA)
+  prep.data[[i]]$covs <- rbind(cbind(prep.data[[i]]$covs, c(NA,NA)), c(NA,NA,NA))}
+  
+  names(prep.data[[i]]$means) <- c("NEE", "Qle", "LAI")
+  rownames(prep.data[[i]]$covs) <- c("NEE", "Qle", "LAI")
+  colnames(prep.data[[i]]$covs) <- c("NEE", "Qle", "LAI")
+  
+  
+}
 #add onto end of prep.data list 
 
 prep.data = c(prep.data, pad)
