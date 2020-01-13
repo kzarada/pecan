@@ -72,13 +72,13 @@ if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
   },
   error = function(e) {
     restart.path <- NULL
-    sda.start <- Sys.Date() - 12
+    sda.start <- Sys.Date() - 9
     PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
   })
   
   # if there was no older sims
   if (is.na(sda.start))
-    sda.start <- Sys.Date() - 12
+    sda.start <- Sys.Date() - 9
 }
 
 sda.end <- Sys.Date()
@@ -155,19 +155,19 @@ tryCatch({
                   PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates",conditionMessage(e)))
                 }
     )
-if(!exists('lai')){lai = NA}
+if(!exists('lai')){lai = NULL}
   
 #pad Observed Data to match met data 
 
 date <-
   seq(
-    from = lubridate::with_tz(as.POSIXct(first(sda.end), format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
+    from = lubridate::with_tz(as.POSIXct(met.start, format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
     to = lubridate::with_tz(as.POSIXct(met.end - lubridate::days(1), format = "%Y-%m-%d"), tz = "UTC"),
     by = "6 hour"
   )
 pad.prep <- obs.raw %>%
   tidyr::complete(Date = seq(
-    from = lubridate::with_tz(as.POSIXct(first(sda.end), format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
+    from = lubridate::with_tz(as.POSIXct(met.start, format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
     to = lubridate::with_tz(as.POSIXct(met.end - lubridate::days(1), format = "%Y-%m-%d"), tz = "UTC"),
     by = "6 hour"
   )) %>%
@@ -191,8 +191,13 @@ pad <- pad.prep %>%
             day.data
           })
 
+#remove any obs that are in pad and prep.data
 
-#Add in LAI info 
+  index <- which(names(pad) %in% names(prep.data))
+  if(length(index) > 1){pad <- pad[-index]}
+
+
+#Add in LAI info to prep.data 
 
 if(is.null(lai)){index <- rep(FALSE, length(names(prep.data)))}else{
   index <- as.Date(names(prep.data)) %in% as.Date(lai$calendar_date)
@@ -202,10 +207,11 @@ if(is.null(lai)){index <- rep(FALSE, length(names(prep.data)))}else{
 for(i in 1:length(index)){
   
   if(index[i]){
+    lai.date <- which(as.Date(lai$calendar_date) == as.Date(prep.data[[i]]$Date))
     LAI <- c(0,0)
-    prep.data[[i]]$means <- c(prep.data[[i]]$means, lai$data[1])
-    prep.data[[i]]$covs <- rbind(cbind(prep.data[[i]]$covs, c(0, 0)), c(0,0, lai$sd[1]))
-    
+    prep.data[[i]]$means <- c(prep.data[[i]]$means, lai$data[lai.date])
+    prep.data[[i]]$covs <- rbind(cbind(prep.data[[i]]$covs, c(0, 0)), c(0,0, 0))
+    #lai$sd[lai.date]
     
   }else{prep.data[[i]]$means <- c(prep.data[[i]]$means, NA)
   prep.data[[i]]$covs <- rbind(cbind(prep.data[[i]]$covs, c(NA,NA)), c(NA,NA,NA))}
