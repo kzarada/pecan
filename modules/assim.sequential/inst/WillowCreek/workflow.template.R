@@ -9,11 +9,13 @@ library("tidyverse")
 library("furrr")
 library("R.utils")
 library("dynutils")
+library('profvis')
 plan(multiprocess)
 
 # ----------------------------------------------------------------------------------------------
 #------------------------------------------ That's all we need xml path and the out folder -----
 # ----------------------------------------------------------------------------------------------
+
 outputPath <- "/fs/data3/kzarada/ouput"
 nodata <- FALSE
 xmlTempName <-"gefs.sipnet.template.xml"
@@ -92,8 +94,10 @@ if(!exists('prep.data'))
     sda.end,
     numvals = 100,
     vars = c("NEE", "LE"),
-    data.len = days.obs * 24  
+    data.len = 3, 
+    sda.start
   ) 
+
 obs.raw <-prep.data$rawobs
 prep.data<-prep.data$obs
 
@@ -386,7 +390,7 @@ if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
 if ('state.data.assimilation' %in% names(settings)) {
   if (PEcAn.utils::status.check("SDA") == 0) {
     PEcAn.utils::status.start("SDA")
-    PEcAn.assim.sequential::sda.enkf(
+    profvis({PEcAn.assim.sequential::sda.enkf(
       settings, 
       restart=restart,
       Q=0,
@@ -402,7 +406,8 @@ if ('state.data.assimilation' %in% names(settings)) {
       )
     )
     PEcAn.utils::status.end()
-  }
+  })}
 }
+
 
   
