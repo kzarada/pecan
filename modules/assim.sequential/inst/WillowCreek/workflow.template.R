@@ -138,26 +138,30 @@ met.start <- obs.raw$Date%>% head(1) %>% lubridate::floor_date(unit = "day")
 met.end <- met.start + lubridate::days(16)
 
 # Download MODIS LAI Data 
+site_info <- list(
+  site_id = 676,
+  site_name = "Willow Creek",
+  lat = 45.805925,
+  lon = -90.07961,
+  time_zone = "UTC")
+
 tryCatch({
-  lai <- call_MODIS(outfolder = '/fs/data3/kzarada/NEFI/MODIS/', 
-                  start_date = paste0(lubridate::year(met.start), strftime(met.start, format = "%j")),
-                  end_date = paste0(lubridate::year(met.end), strftime(met.end, format = "%j")), 
-                  lat = 45.805925,
-                  lon = -90.07961, 
-                  size = 0, 
-                  product = "MOD15A2H", 
-                  band = "Lai_500m", 
-                  band_qc = "FparLai_QC", 
-                  band_sd = "LaiStdDev_500m",
-                  siteID = NULL, 
-                  package_method = "MODISTools", 
-                  QC_filter = FALSE,
-                  progress = TRUE)}, 
+  lai <- call_MODIS(outdir = NULL,
+                    var = 'lai', 
+                    site_info = site_info, 
+                    product_dates = c(paste0(lubridate::year(met.start), strftime(met.start, format = "%j")),paste0(lubridate::year(met.end), strftime(met.end, format = "%j"))),
+                    run_parallel = TRUE, 
+                    ncores = NULL, 
+                    product = "MOD15A2H", 
+                    band = "Lai_500m",
+                    package_method = "MODISTools", 
+                    QC_filter = TRUE,
+                    progress = TRUE)}, 
   error = function(e) {
-                  lai <- NA
-                  PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates",conditionMessage(e)))
-                }
-    )
+    lai <- NULL
+    PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates",conditionMessage(e)))
+  }
+)
 if(!exists('lai')){lai = NULL}
   
 #pad Observed Data to match met data 
@@ -390,7 +394,7 @@ if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
 if ('state.data.assimilation' %in% names(settings)) {
   if (PEcAn.utils::status.check("SDA") == 0) {
     PEcAn.utils::status.start("SDA")
-    profvis({PEcAn.assim.sequential::sda.enkf(
+    PEcAn.assim.sequential::sda.enkf(
       settings, 
       restart=restart,
       Q=0,
@@ -406,7 +410,7 @@ if ('state.data.assimilation' %in% names(settings)) {
       )
     )
     PEcAn.utils::status.end()
-  })}
+  }
 }
 
 
