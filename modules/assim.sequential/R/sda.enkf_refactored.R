@@ -325,6 +325,10 @@ sda.enkf <- function(settings,
       
       
     }
+  
+    
+    #------------------------------------------- Reading the output
+    #--- set the broken ones as NULL
     #------------------------------------------- Reading the output
     X_tmp <- vector("list", 2)
     X <- list()
@@ -350,17 +354,17 @@ sda.enkf <- function(settings,
     }
     
     #----chaning the extension of nc files to a more specific date related name
-   files <-  list.files(
+    files <-  list.files(
       path = file.path(settings$outdir, "out"),
       "*.nc$",
       recursive = TRUE,
       full.names = TRUE)
-   files <-  files[grep(pattern = "SDA*", files, invert = TRUE)]
+    files <-  files[grep(pattern = "SDA*", files, invert = TRUE)]
     
     
-   file.rename(files, 
-               file.path(dirname(files), 
-                  paste0("SDA_", basename(files), "_", gsub(" ", "", names(obs.mean)[t]), ".nc") ) )
+    file.rename(files, 
+                file.path(dirname(files), 
+                          paste0("SDA_", basename(files), "_", gsub(" ", "", names(obs.mean)[t]), ".nc") ) )
     
     #--- Reformating X
     X <- do.call(rbind, X)
@@ -372,7 +376,6 @@ sda.enkf <- function(settings,
     if(sum(X,na.rm=T) == 0){
       logger.severe(paste('NO FORECAST for',obs.times[t],'Check outdir logfiles or read restart. Do you have the right variable names?'))
     }
-    
     ###-------------------------------------------------------------------###
     ###  preparing OBS                                                    ###
     ###-------------------------------------------------------------------###
@@ -509,7 +512,7 @@ sda.enkf <- function(settings,
       }
       enkf.params[[t]] <- list(mu.f = mu.f, Pf = Pf, mu.a = mu.a, Pa = Pa)
     }
-    ###-------------------------------------------------------------------###
+     ###-------------------------------------------------------------------###
     ### adjustement/update state matrix                                   ###
     ###-------------------------------------------------------------------###---- 
     

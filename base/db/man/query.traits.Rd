@@ -14,9 +14,13 @@ query.traits(
 }
 \arguments{
 \item{ids}{vector of species or cultivar id's from trait database}
+
 \item{priors}{vector of parameters for which priors have been specified}
+
 \item{con}{database connection object}
+
 \item{update.check.only}{if TRUE, returns results but does not print summaries}
+
 \item{ids_are_cultivars}{if TRUE, ids is a vector of cultivar IDs, otherwise they are species IDs}
 }
 \value{

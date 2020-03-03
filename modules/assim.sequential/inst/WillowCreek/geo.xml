@@ -126,6 +126,15 @@
   <end.date>2018-12-20</end.date>
  </run>
   <host>
-    <name>localhost</name>
+    <name>geo.bu.edu</name>
+    <user>kzarada</user>
+    <tunnel>/fs/data3/kzarada/NEFI/tunnel</tunnel>
+    <folder>/projectnb/dietzelab/pecan.data/output/kzarada/dbfiles</folder>
+    <qsub>qsub -l h_rt=120:00:00 -V -N @NAME@ -o @STDOUT@ -e @STDERR@</qsub>
+    <qsub.jobid>Your job ([0-9]+) .*</qsub.jobid>
+    <qstat>qstat -j @JOBID@ || echo DONE</qstat>
+    <job.sh>module load udunits  R/3.6.2</job.sh>
+    <rundir>/projectnb/dietzelab/pecan.data/output/kzarada/run</rundir>
+    <outdir>/projectnb/dietzelab/pecan.data/output/kzarada/out</outdir>
   </host>
 </pecan>

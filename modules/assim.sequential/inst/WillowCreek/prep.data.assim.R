@@ -36,7 +36,6 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
   #Pecan Flux Uncertainty 
   processed.flux <- 3:(3+length(vars)-1) %>%
     purrr::map(function(col.num) {
-      
       field_data <- gapfilled.vars[,c(1,2,col.num)]
       
       uncertainty_vals <- list()
@@ -76,7 +75,7 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
       # this keeps the mean of each day for the whole time series and all variables
       sums = c(sums, list(random_mat))
       
-      data.frame(Date=field_data$Date,sums)
+      data.frame(Date=field_data$Date[!is.na(field_data[, 3])],sums)
     }) # end of map
   
   
