@@ -403,9 +403,8 @@ sda.enkf <- function(settings,
       # droping the ones that their means are zero 
       na.obs.mean <- which(is.na(unlist(obs.mean[[t]][choose])))
       na.obs.cov <- which(is.na(unlist(obs.cov[[t]][choose])))
-      if (length(na.obs.mean) > 0)
-        choose <- choose [-na.obs.mean]
-        choose.cov <- choose[-na.obs.cov]
+      if (length(na.obs.mean) > 0) choose <- choose [-na.obs.mean]
+      if (length(na.obs.cov) > 0) choose.cov <- choose[-na.obs.cov]
       
       Y <- unlist(obs.mean[[t]][choose])
     
