@@ -108,7 +108,6 @@
  </ensemble>
  <model>
   <id>1000000030</id>
-    <default.param>/fs/data3/kzarada/US_WCr/data/WillowCreek.param</default.param>
  </model>
  <run>
   <site>

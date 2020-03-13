@@ -314,8 +314,7 @@ if (nodata) {
 }
 
 
-obs = list(obs.mean = obs.mean, obs.cov = obs.cov)
-save(obs, file = paste0(settings$outdir, '/Obs.RData'))
+
 
 
 # --------------------------------------------------------------------------------------------------
@@ -390,287 +389,291 @@ if(restart == TRUE){
                 to = file.path(settings$outdir, "out/"))
 } #restart == TRUE
 
-
-if(remote){ 
-  #---------------------------------------------------------------
-  # Reading the settings
-  #---------------------------------------------------------------
-  settingPath = paste0(settings$outdir, '/pecan.TRAIT.xml')
-  ObsPath = paste0(settings$outdir, '/Obs.RData')
-  run.bash.args = NULL
-  
-  settings <- read.settings(settingPath)
-  
-  host = list(name = 'geo.bu.edu', tunnel = "/fs/data3/kzarada/NEFI/tunnel", user="kzarada", folder = "/projectnb/dietzelab/pecan.data/output/kzarada/", 
-              qsub = "qsub -l h_rt=120:00:00 -q geo* -V -N @NAME@ -o @STDOUT@ -e @STDERR@ -S /bin/bash", qsub.jobid = "Your job ([0-9]+) .*", 
-              qstat = 'qstat -j @JOBID@ || echo DONE', job.sh = "module load udunits  R/3.5.1", 
-              rundir = "/projectnb/dietzelab/pecan.data/output/kzarada/run", 
-              outdir = "/projectnb/dietzelab/pecan.data/output/kzarada/out")
-  settings$host = host
-  
-  my_host <- list(name = 'geo.bu.edu', tunnel = "/fs/data3/kzarada/NEFI/tunnel", user="kzarada")
-  local_path <-settings$outdir
-  
-  if (is.null(run.bash.args)) run.bash.args <-""
-  #---------------------------------------------------------------
-  # Checking the setting xml
-  #---------------------------------------------------------------
-  if (is.null(settings$host$folder)) {
-    PEcAn.logger::logger.severe("You need to specify the <folder> tag in the <host> tag inside your pecan xml !")
-    PEcAn.logger::logger.severe("The <folder> tag is a path which points to where you want to store/run your sda job on the remote machine. ")
-  } else if (!test_remote(my_host)) {
-    PEcAn.logger::logger.severe("There is something wrong with your tunnel !")
-    PEcAn.logger::logger.severe("You can learn more about how to setup your tunnel by checking out the `Remote execution with PEcAn` section in the documentation.")
-    
-  } 
-  #----------------------------------------------------------------
-  # SDA xml tag
-  #---------------------------------------------------------------
-  if (is.null(settings$state.data.assimilation)) {
-    PEcAn.logger::logger.severe("Make sure that you have the state data assimilation tag in your xml ! You can learn more about it in the documantation.")
-  }
-  
-  #---------------------------------------------------------------
-  # Creating a new folder
-  #---------------------------------------------------------------
-  
-  fname_p1 <- basename(settings$outdir)
-  
-  
-  if (!is.null(settings$workflow$id)) {
-    fname_p2<-settings$workflow$id
-  } else {
-    fname_p2<-""
-  }
-  
-  
-  folder_name <- paste0(c("SDA",fname_p1), collapse = "_")
-  #creating a folder on remote
-  out <- remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"\")"),
-                          host = my_host,
-                          user = my_host$user,
-                          scratchdir = ".")
-  #---------------------------------------------------------------
-  # samples/PFT
-  #---------------------------------------------------------------
-  # test to see samples.Rdata
-  if ("samples.Rdata" %in% list.files(settings$outdir)){
-    remote.copy.to(
-      my_host,
-      paste0(settings$outdir,"//","samples.Rdata"),
-      paste0(settings$host$folder,"//",folder_name),
-      delete = FALSE,
-      stderr = FALSE
-    )
-  } else if("pft" %in% list.dirs(settings$outdir, full.names=F)) {#  test for PFT folder
-    remote.copy.to(
-      my_host,
-      paste0(settings$outdir,"//pft"),
-      paste0(settings$host$folder,"//",folder_name,"//pft"),
-      delete = FALSE,
-      stderr = FALSE
-    )
-  } else {
-    #
-    PEcAn.logger::logger.severe("You need to have either PFT folder or sample.Rdata !")
-  }
-  
-  #----------------------------------------------------------------
-  # Obs
-  #---------------------------------------------------------------
-  # testing the obs path and copying over
-  # testing to see if the path exsits on remote if not it should exist on local
-  test.remote.obs <- remote.execute.R(
-    script = paste0("dir.exists(\"/", ObsPath, "\")"),
-    host = my_host,
-    user = my_host$user,
-    scratchdir = "."
-  )
-  
-  # if path is not remote then check for the local
-  if (!test.remote.obs) {
-    if (file.exists(ObsPath)) {
-      remote.copy.to(
-        my_host,
-        ObsPath,
-        paste0(settings$host$folder, "//", folder_name, "//Obs//"),
-        delete = FALSE,
-        stderr = FALSE
-      )
-    } else{
-      PEcAn.logger::logger.severe("I don't have access to your obs path !")
-    }
-  }
-  
-  
-  #----------------------------------------------------------------
-  # Model binary check
-  #---------------------------------------------------------------
-  
-  settings$model$binary = '/usr2/postdoc/istfer/SIPNET/1023/sipnet'
-  
-  model.binary.path <- remote.execute.R(
-    script = paste0("file.exists(\"/", settings$model$binary, "\")"),
-    host = my_host,
-    user = my_host$user,
-    scratchdir = "."
-  )
-  if(!model.binary.path) {
-    PEcAn.logger::logger.severe("Model binary path is missing on the remote machine !")
-  }
-  
-  
-  #----------------------------------------------------------------
-  # met check
-  #---------------------------------------------------------------
-  # Finding all the met paths in your settings
-  # Finding all the met paths in your settings
-  
-  #update inputs on geo 
-  
-  remote.copy.to(
-    host = my_host, 
-    src = '/fs/data3/kzarada/pecan.data/dbfiles', 
-    dst = '/projectnb/dietzelab/pecan.data/output/kzarada/'
-  )
-  
-  
-  input.paths <-settings$run$inputs %>% map(~.x[['path']]) %>% unlist()
-  inputs.folder <- "/projectnb/dietzelab/pecan.data/output/kzarada/dbfiles/"
-  
-
-input.paths %>%
-  walk(function(missing.input){
-   
-        path.break <- strsplit(missing.input, "/")[[1]]
-        #since I'm keeping all the inputs in one folder, I have to combine site folder name with file name
-        fname <-paste0(path.break[length(path.break) - 1], "/", path.break[length(path.break)])
-        
-        
-        #replace the path
-        settings <<-rapply(settings, function(x) ifelse(x==missing.input,
-                                                        paste0(inputs.folder,fname) ,x),
-                           how = "replace")
-      
-     
-      }
-    )
-
-
-  #----------------------------------------------------------------
-  # Cleaning up the settings and getting it ready
-  #---------------------------------------------------------------
-  #Create the scratch dir
-  remote_settings <- settings
-  out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//scratch","\")"),
-                         host = my_host,
-                         user = my_host$user,
-                         scratchdir = ".")
-  
-  out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//run","\")"),
-                         host = my_host,
-                         user = my_host$user, 
-                         scratchdir = ".")
-  
-  out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//out","\")"),
-                         host = my_host,
-                         user = my_host$user, 
-                         scratchdir = ".")
-  
-  remote_settings$outdir <- file.path(settings$host$folder, folder_name)
-  
-  remote_settings$host$name <- "localhost"
-  #setting the new run and out dirs
-  remote_settings$host$rundir <- file.path(settings$host$folder, folder_name,"run")
-  remote_settings$host$outdir <- file.path(settings$host$folder, folder_name,"out")
-  remote_settings$rundir <- file.path(settings$host$folder, folder_name,"run")
-  remote_settings$modeloutdir <- file.path(settings$host$folder, folder_name,"out")
-  
-  remote_settings$database$dbfiles <- "/fs/data3/kzarada/pecan.data/dbfiles/"
-  remote_settings$model$default.param <- '/projectnb/dietzelab/pecan.data/output/kzarada/WillowCreek.param'
-  remote_settings$pfts$pft$outdir <- paste0(settings$host$folder,"//",folder_name,"//pft")
-  
-  remote_settings$state.data.assimilation$start.date <- as.character(sda.start)
-  remote_settings$state.data.assimilation$end.date <- as.character(sda.end)
-  
-  remote_settings$scratchdir <- file.path(settings$host$folder, folder_name,"scratch")
-  
-  remote_settings$database$bety$write = "FALSE" 
-  
-  
-  save.setting.dir <- tempdir()
-  PEcAn.settings::write.settings(remote_settings, basename(settingPath), save.setting.dir)
-  
-  # copying over the settings
-  remote.copy.to(
-    my_host,
-    file.path(save.setting.dir, basename(settingPath)),
-    remote_settings$outdir,
-    delete = FALSE,
-    stderr = FALSE
-  )
-  
-
-  
-  #----------------------------------------------------------------
-  # Copying over the luncher and sending the command
-  #---------------------------------------------------------------
-  # copying over the luncher
-  remote.copy.to(
-    my_host,
-    "/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/WCr_SDA_launcher.R",
-    remote_settings$outdir,
-    delete = FALSE,
-    stderr = FALSE
-  )
-  
-  
-  cmd <- paste0("Rscript ",
-                remote_settings$outdir,"/WCr_SDA_launcher.R ", # remote luncher
-                remote_settings$outdir,"/",basename(settingPath), " ", # path to settings
-                remote_settings$outdir, "/Obs//", basename(ObsPath)
-  )
-  
-  
-  PEcAn.logger::logger.info("Running this command on your remote: \n")
-  PEcAn.logger::logger.info(cmd)
-  
-  #create the bash file
-  bashfile<-readLines(system.file("RemoteLauncher", "Run.bash", package = "PEcAn.assim.sequential"))
-  tmpdir <- tempdir()
-  unlink(paste0(tmpdir,"/Run.bash")) # delete if there is already one exists
-  writeLines(c(bashfile, run.bash.args, cmd), paste0(tmpdir, "/Run.bash"))
-  #copy over the bash file
-  remote.copy.to(
-    my_host,
-    paste0(tmpdir,"/Run.bash"),
-    paste0(settings$host$folder, "/", folder_name, "/RunBash.sh"),
-    delete = FALSE,
-    stderr = FALSE
-  )
-  
-  
-  # I'm tricking the remote::start_qsub to let me submit my job
-  out.job.id <- PEcAn.remote::start_qsub(
-    run = "",
-    qsub_string = settings$host$qsub,
-    rundir = NULL,
-    host = settings$host,
-    host_rundir = paste0(settings$host$folder, "/", folder_name),
-    host_outdir = "",
-    stdout_log = "",
-    stderr_log = "",
-    job_script = "RunBash.sh"
-  )
-  
-  # Let's see what is the job id of the job doing
-  out.job.id<-qsub_get_jobid(out = out.job.id[length(out.job.id)], qsub.jobid = settings$host$qsub.jobid, stop.on.error = stop.on.error)
-  
-  if (length(out.job.id)==0 | is.null(out.job.id)){
-    PEcAn.logger::logger.severe("Something broke the run before it starts!")
-    PEcAn.logger::logger.severe(paste0("In order to get a better sense of what happened you can check out ",settings$outdir,"/log.qlog"))
-  }
-  }else{
+# 
+# if(remote){ 
+#   #---------------------------------------------------------------
+#   # Reading the settings
+#   #---------------------------------------------------------------
+#   
+#   obs = list(obs.mean = obs.mean, obs.cov = obs.cov)
+#   save(obs, file = paste0(settings$outdir, '/Obs.RData'))
+#   
+#   settingPath = paste0(settings$outdir, '/pecan.TRAIT.xml')
+#   ObsPath = paste0(settings$outdir, '/Obs.RData')
+#   run.bash.args = NULL
+#   
+#   settings <- read.settings(settingPath)
+#   
+#   host = list(name = 'geo.bu.edu', tunnel = "/fs/data3/kzarada/NEFI/tunnel", user="kzarada", folder = "/projectnb/dietzelab/pecan.data/output/kzarada/", 
+#               qsub = "qsub -l h_rt=120:00:00 -q geo* -V -N @NAME@ -o @STDOUT@ -e @STDERR@ -S /bin/bash", qsub.jobid = "Your job ([0-9]+) .*", 
+#               qstat = 'qstat -j @JOBID@ || echo DONE', job.sh = "module load udunits  R/3.5.1", 
+#               rundir = "/projectnb/dietzelab/pecan.data/output/kzarada/run", 
+#               outdir = "/projectnb/dietzelab/pecan.data/output/kzarada/out")
+#   settings$host = host
+#   
+#   my_host <- list(name = 'geo.bu.edu', tunnel = "/fs/data3/kzarada/NEFI/tunnel", user="kzarada")
+#   local_path <-settings$outdir
+#   
+#   if (is.null(run.bash.args)) run.bash.args <-""
+#   #---------------------------------------------------------------
+#   # Checking the setting xml
+#   #---------------------------------------------------------------
+#   if (is.null(settings$host$folder)) {
+#     PEcAn.logger::logger.severe("You need to specify the <folder> tag in the <host> tag inside your pecan xml !")
+#     PEcAn.logger::logger.severe("The <folder> tag is a path which points to where you want to store/run your sda job on the remote machine. ")
+#   } else if (!test_remote(my_host)) {
+#     PEcAn.logger::logger.severe("There is something wrong with your tunnel !")
+#     PEcAn.logger::logger.severe("You can learn more about how to setup your tunnel by checking out the `Remote execution with PEcAn` section in the documentation.")
+#     
+#   } 
+#   #----------------------------------------------------------------
+#   # SDA xml tag
+#   #---------------------------------------------------------------
+#   if (is.null(settings$state.data.assimilation)) {
+#     PEcAn.logger::logger.severe("Make sure that you have the state data assimilation tag in your xml ! You can learn more about it in the documantation.")
+#   }
+#   
+#   #---------------------------------------------------------------
+#   # Creating a new folder
+#   #---------------------------------------------------------------
+#   
+#   fname_p1 <- basename(settings$outdir)
+#   
+#   
+#   if (!is.null(settings$workflow$id)) {
+#     fname_p2<-settings$workflow$id
+#   } else {
+#     fname_p2<-""
+#   }
+#   
+#   
+#   folder_name <- paste0(c("SDA",fname_p1), collapse = "_")
+#   #creating a folder on remote
+#   out <- remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"\")"),
+#                           host = my_host,
+#                           user = my_host$user,
+#                           scratchdir = ".")
+#   #---------------------------------------------------------------
+#   # samples/PFT
+#   #---------------------------------------------------------------
+#   # test to see samples.Rdata
+#   if ("samples.Rdata" %in% list.files(settings$outdir)){
+#     remote.copy.to(
+#       my_host,
+#       paste0(settings$outdir,"//","samples.Rdata"),
+#       paste0(settings$host$folder,"//",folder_name),
+#       delete = FALSE,
+#       stderr = FALSE
+#     )
+#   } else if("pft" %in% list.dirs(settings$outdir, full.names=F)) {#  test for PFT folder
+#     remote.copy.to(
+#       my_host,
+#       paste0(settings$outdir,"//pft"),
+#       paste0(settings$host$folder,"//",folder_name,"//pft"),
+#       delete = FALSE,
+#       stderr = FALSE
+#     )
+#   } else {
+#     #
+#     PEcAn.logger::logger.severe("You need to have either PFT folder or sample.Rdata !")
+#   }
+#   
+#   #----------------------------------------------------------------
+#   # Obs
+#   #---------------------------------------------------------------
+#   # testing the obs path and copying over
+#   # testing to see if the path exsits on remote if not it should exist on local
+#   test.remote.obs <- remote.execute.R(
+#     script = paste0("dir.exists(\"/", ObsPath, "\")"),
+#     host = my_host,
+#     user = my_host$user,
+#     scratchdir = "."
+#   )
+#   
+#   # if path is not remote then check for the local
+#   if (!test.remote.obs) {
+#     if (file.exists(ObsPath)) {
+#       remote.copy.to(
+#         my_host,
+#         ObsPath,
+#         paste0(settings$host$folder, "//", folder_name, "//Obs//"),
+#         delete = FALSE,
+#         stderr = FALSE
+#       )
+#     } else{
+#       PEcAn.logger::logger.severe("I don't have access to your obs path !")
+#     }
+#   }
+#   
+#   
+#   #----------------------------------------------------------------
+#   # Model binary check
+#   #---------------------------------------------------------------
+#   
+#   settings$model$binary = '/usr2/postdoc/istfer/SIPNET/1023/sipnet'
+#   
+#   model.binary.path <- remote.execute.R(
+#     script = paste0("file.exists(\"/", settings$model$binary, "\")"),
+#     host = my_host,
+#     user = my_host$user,
+#     scratchdir = "."
+#   )
+#   if(!model.binary.path) {
+#     PEcAn.logger::logger.severe("Model binary path is missing on the remote machine !")
+#   }
+#   
+#   
+#   #----------------------------------------------------------------
+#   # met check
+#   #---------------------------------------------------------------
+#   # Finding all the met paths in your settings
+#   # Finding all the met paths in your settings
+#   
+#   #update inputs on geo 
+#   
+#   remote.copy.to(
+#     host = my_host, 
+#     src = '/fs/data3/kzarada/pecan.data/dbfiles', 
+#     dst = '/projectnb/dietzelab/pecan.data/output/kzarada/'
+#   )
+#   
+#   
+#   input.paths <-settings$run$inputs %>% map(~.x[['path']]) %>% unlist()
+#   inputs.folder <- "/projectnb/dietzelab/pecan.data/output/kzarada/dbfiles/"
+#   
+# 
+# input.paths %>%
+#   walk(function(missing.input){
+#    
+#         path.break <- strsplit(missing.input, "/")[[1]]
+#         #since I'm keeping all the inputs in one folder, I have to combine site folder name with file name
+#         fname <-paste0(path.break[length(path.break) - 1], "/", path.break[length(path.break)])
+#         
+#         
+#         #replace the path
+#         settings <<-rapply(settings, function(x) ifelse(x==missing.input,
+#                                                         paste0(inputs.folder,fname) ,x),
+#                            how = "replace")
+#       
+#      
+#       }
+#     )
+# 
+# 
+#   #----------------------------------------------------------------
+#   # Cleaning up the settings and getting it ready
+#   #---------------------------------------------------------------
+#   #Create the scratch dir
+#   remote_settings <- settings
+#   out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//scratch","\")"),
+#                          host = my_host,
+#                          user = my_host$user,
+#                          scratchdir = ".")
+#   
+#   out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//run","\")"),
+#                          host = my_host,
+#                          user = my_host$user, 
+#                          scratchdir = ".")
+#   
+#   out <-remote.execute.R(script=paste0("dir.create(\"/",settings$host$folder,"//",folder_name,"//out","\")"),
+#                          host = my_host,
+#                          user = my_host$user, 
+#                          scratchdir = ".")
+#   
+#   remote_settings$outdir <- file.path(settings$host$folder, folder_name)
+#   
+#   remote_settings$host$name <- "localhost"
+#   #setting the new run and out dirs
+#   remote_settings$host$rundir <- file.path(settings$host$folder, folder_name,"run")
+#   remote_settings$host$outdir <- file.path(settings$host$folder, folder_name,"out")
+#   remote_settings$rundir <- file.path(settings$host$folder, folder_name,"run")
+#   remote_settings$modeloutdir <- file.path(settings$host$folder, folder_name,"out")
+#   
+#   remote_settings$database$dbfiles <- "/fs/data3/kzarada/pecan.data/dbfiles/"
+#   remote_settings$model$default.param <- '/projectnb/dietzelab/pecan.data/output/kzarada/WillowCreek.param'
+#   remote_settings$pfts$pft$outdir <- paste0(settings$host$folder,"//",folder_name,"//pft")
+#   
+#   remote_settings$state.data.assimilation$start.date <- as.character(sda.start)
+#   remote_settings$state.data.assimilation$end.date <- as.character(sda.end)
+#   
+#   remote_settings$scratchdir <- file.path(settings$host$folder, folder_name,"scratch")
+#   
+#   remote_settings$database$bety$write = "FALSE" 
+#   
+#   
+#   save.setting.dir <- tempdir()
+#   PEcAn.settings::write.settings(remote_settings, basename(settingPath), save.setting.dir)
+#   
+#   # copying over the settings
+#   remote.copy.to(
+#     my_host,
+#     file.path(save.setting.dir, basename(settingPath)),
+#     remote_settings$outdir,
+#     delete = FALSE,
+#     stderr = FALSE
+#   )
+#   
+# 
+#   
+#   #----------------------------------------------------------------
+#   # Copying over the luncher and sending the command
+#   #---------------------------------------------------------------
+#   # copying over the luncher
+#   remote.copy.to(
+#     my_host,
+#     "/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/WCr_SDA_launcher.R",
+#     remote_settings$outdir,
+#     delete = FALSE,
+#     stderr = FALSE
+#   )
+#   
+#   
+#   cmd <- paste0("Rscript ",
+#                 remote_settings$outdir,"/WCr_SDA_launcher.R ", # remote luncher
+#                 remote_settings$outdir,"/",basename(settingPath), " ", # path to settings
+#                 remote_settings$outdir, "/Obs//", basename(ObsPath)
+#   )
+#   
+#   
+#   PEcAn.logger::logger.info("Running this command on your remote: \n")
+#   PEcAn.logger::logger.info(cmd)
+#   
+#   #create the bash file
+#   bashfile<-readLines(system.file("RemoteLauncher", "Run.bash", package = "PEcAn.assim.sequential"))
+#   tmpdir <- tempdir()
+#   unlink(paste0(tmpdir,"/Run.bash")) # delete if there is already one exists
+#   writeLines(c(bashfile, run.bash.args, cmd), paste0(tmpdir, "/Run.bash"))
+#   #copy over the bash file
+#   remote.copy.to(
+#     my_host,
+#     paste0(tmpdir,"/Run.bash"),
+#     paste0(settings$host$folder, "/", folder_name, "/RunBash.sh"),
+#     delete = FALSE,
+#     stderr = FALSE
+#   )
+#   
+#   
+#   # I'm tricking the remote::start_qsub to let me submit my job
+#   out.job.id <- PEcAn.remote::start_qsub(
+#     run = "",
+#     qsub_string = settings$host$qsub,
+#     rundir = NULL,
+#     host = settings$host,
+#     host_rundir = paste0(settings$host$folder, "/", folder_name),
+#     host_outdir = "",
+#     stdout_log = "",
+#     stderr_log = "",
+#     job_script = "RunBash.sh"
+#   )
+#   
+#   # Let's see what is the job id of the job doing
+#   out.job.id<-qsub_get_jobid(out = out.job.id[length(out.job.id)], qsub.jobid = settings$host$qsub.jobid, stop.on.error = stop.on.error)
+#   
+#   if (length(out.job.id)==0 | is.null(out.job.id)){
+#     PEcAn.logger::logger.severe("Something broke the run before it starts!")
+#     PEcAn.logger::logger.severe(paste0("In order to get a better sense of what happened you can check out ",settings$outdir,"/log.qlog"))
+#   }
+#   }else{
  # --------------------------------------------------------------------------------------------------
 #--------------------------------- Run state data assimilation -------------------------------------
 # --------------------------------------------------------------------------------------------------
