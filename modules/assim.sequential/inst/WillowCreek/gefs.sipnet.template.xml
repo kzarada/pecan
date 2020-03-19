@@ -1,13 +1,103 @@
 <?xml version="1.0"?>
 <pecan>
  <state.data.assimilation>
-  <process.variance>FALSE</process.variance>
+  <process.variance>TRUE</process.variance>
   <sample.parameters>TRUE</sample.parameters>
+  <adjustment>TRUE</adjustment>
   <data>
    <format_id>1000000040</format_id>
    <input.id>1000013298</input.id>
   </data>
+   <inputs>
+   <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>AbvGrndWood</variable.name>
+    </variable.name>
+   </file>
+   <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>-9999</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>NEE</variable.name>
+    </variable.name>
+   </file>
+  <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>QLE</variable.name>
+    </variable.name>
+  </file>
+  <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>LAI</variable.name>
+    </variable.name>
+  </file>
+  <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>TotSoilCarb</variable.name>
+    </variable.name>
+   </file>
+  <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>1</max_value>
+    <variable.name>
+     <variable.name>SoilMoistFrac</variable.name>
+    </variable.name>
+   </file>
+    <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>Litter</variable.name>
+    </variable.name>
+   </file>
+    <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>SWE</variable.name>
+    </variable.name>
+   </file>
+  <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>litter_carbon_content</variable.name>
+    </variable.name>
+   </file>
+  </inputs>
   <state.variables>
+   <variable>
+    <variable.name>AbvGrndWood</variable.name>
+    <unit>MgC/ha</unit>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+   </variable>
    <variable>
     <variable.name>NEE</variable.name>
     <unit>MgC/ha/yr</unit>

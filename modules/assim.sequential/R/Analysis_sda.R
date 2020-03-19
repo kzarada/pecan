@@ -378,6 +378,10 @@ GEF<-function(settings, Forecast, Observed, H, extraArg, nitr=50000, nburnin=100
       pft2total_TRUE = pft2total_TRUE
     )
     
+    PEcAn.logger::logger.info("The zero variances in R and Pf is being replaced by half and one fifth of the minimum variance in those matrices respectively.")
+    diag(R)[which(diag(R)==0)] <- min(diag(R)[which(diag(R) != 0)])/2
+    diag(Pf)[which(diag(Pf)==0)] <- min(diag(Pf)[which(diag(Pf) != 0)])/5
+    
     dimensions.tobit <<- list(X = length(mu.f), X.mod = ncol(X),
                             Q = c(length(mu.f),length(mu.f)),
                             y_star = (length(y.censored)))
