@@ -247,7 +247,7 @@ sda.enkf <- function(settings,
         sum(unlist(sapply(
           X = run.id,
           FUN = function(x){
-            pattern = '/*.nc$' #this wasn't counting them properly for my runs? 
+            pattern = paste0(x, '/*.nc$')[1] #this wasn't counting them properly for my runs? 
             grep(
               pattern = pattern,
               x = list.files(file.path(outdir,x), "*.nc$", recursive = F, full.names = T)

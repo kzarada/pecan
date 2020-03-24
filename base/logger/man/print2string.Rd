@@ -20,7 +20,7 @@ Output of \code{print(x, ...)}, captured as string
 \description{
 Note that for this to work properly in the \code{PEcAn.logger}
 functions, you should always add the \code{wrap = FALSE} argument, and
-probably add a newline (\code{"\n"}) before the output of this function.
+probably add a newline (\code{"\\n"}) before the output of this function.
 }
 \examples{
 logger.info("First few rows of Iris:\\n", print2string(iris[1:10, -5]), wrap = FALSE)
