@@ -20,7 +20,7 @@ plan(multisession)
 outputPath <- "/fs/data3/kzarada/ouput/LAI_Reanalysis/"
 nodata <- FALSE
 xmlTempName <-"gefs.sipnet.template.xml"
-restart <-TRUE
+restart <-FALSE
 days.obs <- 1  #how many of observed data to include -- not including today
 setwd(outputPath)
 
@@ -46,7 +46,7 @@ c(
 
 
 #for(i in 1:length(dates)){
-  i = 2
+  i = 1
   setwd("/fs/data3/kzarada/ouput/LAI_Reanalysis/")
   options(warn=-1)
   #changing start date 
@@ -422,6 +422,7 @@ c(
   #--------------------------------- Run state data assimilation -------------------------------------
   # --------------------------------------------------------------------------------------------------
   
+  
   if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
   
   if ('state.data.assimilation' %in% names(settings)) {
@@ -438,7 +439,7 @@ c(
           interactivePlot =FALSE,
           TimeseriesPlot =TRUE,
           BiasPlot =FALSE,
-          debug =FALSE,
+          debug =TRUE,
           pause=FALSE
         )
       )
