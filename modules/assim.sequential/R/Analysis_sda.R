@@ -125,7 +125,7 @@ GEF<-function(settings, Forecast, Observed, H, extraArg, nitr=50000, nburnin=100
   Q <- Forecast$Q # process error
   X <- Forecast$X # states 
   Pf = cov(X) # Cov Forecast - Goes into tobit2space as initial condition but is re-estimated in tobit space
-  
+  diag(Pf)[which(diag(Pf)==0)] <- min(diag(Pf)[which(diag(Pf) != 0)])/5 #fixing det(Pf)==0
   mu.f <- colMeans(X) #mean Forecast - This is used as an initial condition
   #Observed inputs
   R <- try(solve(Observed$R), silent = F) #putting solve() here so if not invertible error is before compiling tobit2space
@@ -261,6 +261,7 @@ GEF<-function(settings, Forecast, Observed, H, extraArg, nitr=50000, nburnin=100
   mu.f <- colMeans(dat.tobit2space[, imuf])
   iPf   <- grep("pf", colnames(dat.tobit2space))
   Pf <- matrix(colMeans(dat.tobit2space[, iPf]),ncol(X),ncol(X))
+  diag(Pf)[which(diag(Pf)==0)] <- min(diag(Pf)[which(diag(Pf) != 0)])/5
   #--- This is where the localization needs to happen - After imputing Pf
   
 
@@ -425,7 +426,7 @@ samplerNumberOffset <<- length(conf$getSamplers())
 
 for(i in 1:length(y.ind)) {
   node <- paste0('y.censored[',i,']')
-  conf$addSampler(node, 'toggle', control=list(type='RW'))
+  conf$addSampler(node, 'toggle', control=list(type='slice'))
   ## could instead use slice samplers, or any combination thereof, e.g.:
   ##conf$addSampler(node, 'toggle', control=list(type='slice'))
 }
@@ -453,6 +454,7 @@ for(i in 1:length(y.ind)) {
     Cmodel$aq <- aqq
     Cmodel$bq <- bqq
     Cmodel$muf <- mu.f
+    diag(Pf)[which(diag(Pf)==0)] <- min(diag(Pf)[which(diag(Pf) != 0)])/5
     Cmodel$pf <- solve(Pf)
     Cmodel$r <- (R) #precision
     
