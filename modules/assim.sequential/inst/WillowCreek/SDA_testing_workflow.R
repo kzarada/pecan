@@ -147,14 +147,6 @@ c(
     })
   
   
-  # Changing units of NEE
-  
-  prep.data <- prep.data %>%
-    map(function(day.data) {
-      day.data$means[names(day.data$means) == "NEE"] <- PEcAn.utils::misc.convert(day.data$means[names(day.data$means) == "NEE"], "kg C m-2 s-1", "umol C m-2 s-1")
-      day.data
-    })
-  
   # Finding the right end and start date
   met.start <- obs.raw$Date%>% head(1) %>% lubridate::floor_date(unit = "day")
   met.end <- met.start + lubridate::days(16)

@@ -24,6 +24,7 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
       return(field_data)
     })
   
+  gapfilled.vars$NEE_f = PEcAn.utils::misc.convert(gapfilled.vars$NEE_f, "kg C m-2 s-1", "umol C m-2 s-1")
   
   #Reading the columns we need
   cols <- grep(paste0("_*_f$"), colnames(gapfilled.vars), value = TRUE)
