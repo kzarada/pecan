@@ -115,6 +115,8 @@ c(
   prep.data<-prep.data$obs
   
   
+
+  
   # if there is infinte value then take it out - here we want to remove any that just have one NA in the observed data 
   prep.data <- prep.data %>% 
     map(function(day.data){
@@ -145,6 +147,13 @@ c(
     })
   
   
+  # Changing units of NEE
+  
+  prep.data <- prep.data %>%
+    map(function(day.data) {
+      day.data$means[names(day.data$means) == "NEE"] <- PEcAn.utils::misc.convert(day.data$means[names(day.data$means) == "NEE"], "kg C m-2 s-1", "umol C m-2 s-1")
+      day.data
+    })
   
   # Finding the right end and start date
   met.start <- obs.raw$Date%>% head(1) %>% lubridate::floor_date(unit = "day")
@@ -261,6 +270,8 @@ c(
   
   #add onto end of prep.data list 
   
+  
+  
   prep.data = c(prep.data, pad)
   
   
@@ -269,21 +280,18 @@ c(
     discard(~lubridate::hour(.x$Date)!=0)
   
   
-  obs.mean <- prep.data %>% map('means') %>% setNames(names(prep.data))
+  obs.mean <- prep.data %>%
+                map('means') %>% 
+                setNames(names(prep.data))
   obs.cov <- prep.data %>% map('covs') %>% setNames(names(prep.data))
-  
-  
-  
-  
-  
-  
-  
   
   
   
   #-----------------------------------------------------------------------------------------------
   #------------------------------------------ Fixing the settings --------------------------------
   #-----------------------------------------------------------------------------------------------
+  #unlink existing IC files
+  sapply(paste0("/fs/data3/kzarada/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
   #Using the found dates to run - this will help to download mets
   settings$run$start.date <- as.character(met.start)
   settings$run$end.date <- as.character(met.end)
@@ -345,7 +353,7 @@ c(
       return(NA))
   }
   
-  
+  ### if we  need to change units-- PEcAn.utils::misc.convert(obs.mean$`2019-05-19 00:00:00`[1], "kg C m-2 s-1", "umol C m-2 s-1") 
   # --------------------------------------------------------------------------------------------------
   #--------------------------------- Restart -------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -423,7 +431,7 @@ c(
   # --------------------------------------------------------------------------------------------------
   
   
-  if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
+  #if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
   
   if ('state.data.assimilation' %in% names(settings)) {
     if (PEcAn.utils::status.check("SDA") == 0) {
@@ -439,7 +447,7 @@ c(
           interactivePlot =FALSE,
           TimeseriesPlot =TRUE,
           BiasPlot =FALSE,
-          debug =TRUE,
+          debug = TRUE,
           pause=FALSE
         )
       )

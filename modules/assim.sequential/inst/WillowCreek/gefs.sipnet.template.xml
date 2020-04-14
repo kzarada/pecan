@@ -12,6 +12,15 @@
    <file>
     <input.id>1000013298</input.id>
     <operator>direct</operator>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+    <variable.name>
+     <variable.name>AbvGrndWood</variable.name>
+    </variable.name>
+   </file>
+   <file>
+    <input.id>1000013298</input.id>
+    <operator>direct</operator>
     <min_value>-9999</min_value>
     <max_value>9999</max_value>
     <variable.name>
@@ -54,24 +63,6 @@
      <variable.name>SoilMoistFrac</variable.name>
     </variable.name>
    </file>
-    <file>
-    <input.id>1000013298</input.id>
-    <operator>direct</operator>
-    <min_value>0</min_value>
-    <max_value>9999</max_value>
-    <variable.name>
-     <variable.name>Litter</variable.name>
-    </variable.name>
-   </file>
-    <file>
-    <input.id>1000013298</input.id>
-    <operator>direct</operator>
-    <min_value>0</min_value>
-    <max_value>9999</max_value>
-    <variable.name>
-     <variable.name>SWE</variable.name>
-    </variable.name>
-   </file>
   <file>
     <input.id>1000013298</input.id>
     <operator>direct</operator>
@@ -83,6 +74,12 @@
    </file>
   </inputs>
   <state.variables>
+   <variable>
+    <variable.name>AbvGrndWood</variable.name>
+    <unit>MgC/ha</unit>
+    <min_value>0</min_value>
+    <max_value>9999</max_value>
+   </variable>
    <variable>
     <variable.name>NEE</variable.name>
     <unit>MgC/ha/yr</unit>
@@ -112,18 +109,6 @@
    <unit>m/m</unit>
     <min_value>0</min_value>
     <max_value>1</max_value>
-  </variable>
-  <variable>
-    <variable.name>Litter</variable.name>
-    <unit>gC/m^2</unit>
-    <min_value>0</min_value>
-    <max_value>9999</max_value>
-  </variable>
-  <variable>
-  <variable.name>SWE</variable.name>
-  <unit>kg/m^2</unit>
-  <min_value>0</min_value>
-  <max_value>9999</max_value>
   </variable>
   <variable>
   <variable.name>litter_carbon_content</variable.name>
@@ -160,7 +145,7 @@
    <constants>
     <num>1</num>
    </constants>
-   <posteriorid>1000016041</posteriorid>
+   <posteriorid>1000012409</posteriorid>
   </pft>
  </pfts>
  <meta.analysis>
@@ -179,9 +164,13 @@
    <met>
     <method>sampling</method>
    </met>
+   <poolinitcond>
+     <method>sampling</method>
+   </poolinitcond>
   </samplingspace>
  </ensemble>
  <model>
+  <default.param>/fs/data3/kzarada/US_WCr/data/WillowCreek.param</default.param>
   <id>1000000030</id>
  </model>
  <run>
@@ -191,6 +180,9 @@
    <met.end>2018-09-23</met.end>
   </site>
   <inputs>
+   <poolinitcond>
+    <source>BADM</source>
+   </poolinitcond>
    <met>
     <source>NOAA_GEFS_downscale</source>
     <output>SIPNET</output>

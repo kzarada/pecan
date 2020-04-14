@@ -436,6 +436,7 @@ sda.enkf <- function(settings,
       
       wts <- unlist(weight_list[[t]][outconfig$samples$met$ids])
       
+      debugonce(Analysis.sda) 
       #-analysis function
       enkf.params[[t]] <- Analysis.sda(settings,
                                        FUN=an.method,
