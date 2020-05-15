@@ -345,6 +345,7 @@ sda.enkf <- function(settings,
         )
       )
       
+    
       # states will be in X, but we also want to carry some deterministic relationships to write_restart
       # these will be stored in params
       X[[i]]      <- X_tmp[[i]]$X
@@ -368,6 +369,25 @@ sda.enkf <- function(settings,
     
     #--- Reformating X
     X <- do.call(rbind, X)
+    
+    #--- Unit Change if needed
+    unit.vars <- sapply(settings$state.data.assimilation$state.variables, '[[', "unit")
+    names(unit.vars) <- input.vars
+    unit.vars <- plyr::compact(unit.vars)
+    
+    standards <- PEcAn.utils::standard_vars%>% 
+      dplyr::select(Variable.Name, Units) %>% 
+      dplyr::filter(Variable.Name %in% names(unit.vars)) 
+    
+    units.index = which(dimnames(X)[[2]] %in% names(unit.vars))
+    for(i in 1:length(units.index)){
+      
+      X[,units.index[i]] <- PEcAn.utils::misc.convert(X[,units.index[i]], as.character(standards$Units[i]), unit.vars[[i]][1])
+      
+    }
+    
+    if(length(units.index) > 0){PEcAn.logger::logger.warn("Changing units of", names(unit.vars), "to", unit.vars)}
+    #end unit change 
     
     FORECAST[[t]] <- X
     mu.f <- colMeans(X)
@@ -436,7 +456,6 @@ sda.enkf <- function(settings,
       
       wts <- unlist(weight_list[[t]][outconfig$samples$met$ids])
       
-      debugonce(Analysis.sda) 
       #-analysis function
       enkf.params[[t]] <- Analysis.sda(settings,
                                        FUN=an.method,
