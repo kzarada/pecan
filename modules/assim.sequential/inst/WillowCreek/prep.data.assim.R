@@ -87,7 +87,7 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
       
       x %>%
         filter(Date >= (sda.start - lubridate::days(data.len)) & Date < sda.start) %>%
-        mutate(Interval = lubridate::round_date(Date, "6 hour")) %>%
+        mutate(Interval = lubridate::round_date(Date, "1 hour")) %>%
         dplyr::select(-Date)
     }) %>%
     split(.$Interval) %>%
