@@ -28,8 +28,10 @@ download_US_WCr_met <- function(start_date, end_date) {
     mutate_all(funs(as.numeric))
   
   #Constructing the date based on the columns we have
-  raw.data$date <-as.POSIXct(paste0(raw.data$V1,"/",raw.data$V2,"/",raw.data$V3," ", raw.data$V4 %>% as.integer(), ":",(raw.data$V4-as.integer(raw.data$V4))*60),
-                             format="%Y/%m/%d %H:%M", tz="UTC")
+  #Converting the WCR data from CST to UTC 
+  raw.data$date <-lubridate::with_tz(as.POSIXct(paste0(raw.data$V1,"/",raw.data$V2,"/",raw.data$V3," ", raw.data$V4 %>% as.integer(), ":",(raw.data$V4-as.integer(raw.data$V4))*60),
+                             format="%Y/%m/%d %H:%M", tz="US/Central"), tz = "UTC")
+ 
   
   
   start_date <- as.POSIXct(start_date, format = "%Y-%m-%d", tz = "UTC")
@@ -80,9 +82,7 @@ download_US_WCr_flux <- function(start_date, end_date) {
   # Some cleaning and filtering 
   raw.data <- raw.data %>% 
     # select(-V5, -V6) %>%
-    filter(date >= start_date & date <=end_date) %>% 
-    mutate(V10 = PEcAn.utils::misc.convert(V9, "W m-2", "mW m-2"))
-  
+    filter(date >= start_date & date <=end_date) 
   #Colnames changed
   colnames(raw.data) <- c("Year", "Month", "Day", "Hour", "DoY", "FjDay", "SC", "FC", "NEE", "LE", "H", "Ustar", "Flag", "date")
   

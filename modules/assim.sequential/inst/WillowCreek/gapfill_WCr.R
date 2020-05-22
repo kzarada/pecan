@@ -24,9 +24,9 @@ flux <- FUN.flux(start_date, end_date)
 met <- FUN.met(start_date, end_date) 
 # converting NEE and LE 
 #change -999 to NA's 
-flux[flux == -999] <- NA
-flux$NEE<-PEcAn.utils::misc.convert(flux$NEE, "umol C m-2 s-1", "kg C m-2 s-1")
-flux$LE<-flux$LE*1e-6
+flux[flux == -999] <- NA  #want both NEE and LE to be larger numbers 
+#flux$NEE<-PEcAn.utils::misc.convert(flux$NEE, "umol C m-2 s-1", "kg C m-2 s-1")
+#flux$LE<-flux$LE*1e-6
 #join met and flux data by date (which includes time and day)
 met <- met %>% dplyr::select(date, Tair, Rg, Tsoil)
 flux <- left_join(flux, met, by = "date") %>%
