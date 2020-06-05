@@ -44,7 +44,8 @@ suppressWarnings({
                         ,
                         Day.s = 'DoY',
                         Hour.s = 'Hour') %>%
-    dplyr::select(-date,-Month,-Day)
+    dplyr::select(-date,-Month,-Day) %>% 
+    distinct(DateTime, .keep_all = TRUE)
 })
 
 
