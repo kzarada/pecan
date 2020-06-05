@@ -30,7 +30,8 @@ flux[flux == -999] <- NA  #want both NEE and LE to be larger numbers
 #join met and flux data by date (which includes time and day)
 met <- met %>% dplyr::select(date, Tair, Rg, Tsoil)
 flux <- left_join(flux, met, by = "date") %>%
-          dplyr::select(-FjDay, -SC, -FC) 
+          dplyr::select(-FjDay, -SC, -FC) %>% 
+          distinct(date, .keep_all = TRUE)
 #print(str(flux))
 
 
