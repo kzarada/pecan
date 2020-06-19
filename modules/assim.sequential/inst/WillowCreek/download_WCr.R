@@ -79,6 +79,10 @@ download_US_WCr_flux <- function(start_date, end_date) {
   #Constructing the date based on the columns we have
   raw.data$date <-as.POSIXct(paste0(raw.data$V1,"/",raw.data$V2,"/",raw.data$V3," ", raw.data$V4 %>% as.integer(), ":",(raw.data$V4-as.integer(raw.data$V4))*60),
                              format="%Y/%m/%d %H:%M", tz="UTC")
+  
+  start_date <- as.POSIXct(start_date, format = "%Y-%m-%d", tz = "UTC")
+  end_date <- as.POSIXct(end_date, format = "%Y-%m-%d", tz = "UTC")
+  
   # Some cleaning and filtering 
   raw.data <- raw.data %>% 
     # select(-V5, -V6) %>%
