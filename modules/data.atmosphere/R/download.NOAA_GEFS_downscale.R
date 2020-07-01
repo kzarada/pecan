@@ -203,7 +203,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   #####################################
   #done with data processing- now want to take the list and make one df for downscaling
   
-  time = seq(from = start_date + lubridate::hours(6), to = end_date, by = "6 hour") 
+  time = seq(from = start_date, to = end_date - lubridate::hours(6), by = "6 hour") 
   forecasts = matrix(ncol = length(noaa_data)+ 2, nrow = 0)
   colnames(forecasts) <- c(cf_var_names, "timestamp", "NOAA.member")
   
@@ -249,6 +249,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   
   
   joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp"))
+  joined<-  dplyr::inner_join(joined, precip.hrly, by = c("NOAA.member", "timestamp"))
   
   joined <- dplyr::inner_join(joined, ShortWave.ds, by = c("NOAA.member", "timestamp")) %>% 
     dplyr::distinct() %>% 
