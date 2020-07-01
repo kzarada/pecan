@@ -44,7 +44,7 @@
 ##' 
 
 
-download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, start_date = Sys.time(), end_date = (as.POSIXct(start_date, tz="UTC") + lubridate::days(16)),
+download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, start_date, end_date,
                                          overwrite = FALSE, verbose = FALSE, ...) {
   
   start_date <- as.POSIXct(start_date, tz = "UTC")
@@ -226,8 +226,9 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   forecasts$wind_speed <- sqrt(forecasts$eastward_wind^ 2 + forecasts$northward_wind^ 2)
   
   ### Downscale state variables 
-  gefs_hour <- PEcAn.data.atmosphere::downscale_spline_to_hourly(df = forecasts, VarNamesStates = c("air_temperature", "wind_speed", "specific_humidity", "precipitation_flux", "air_pressure"))
+  gefs_hour <- PEcAn.data.atmosphere::downscale_spline_to_hourly(df = forecasts, VarNamesStates = c("air_temperature", "wind_speed", "specific_humidity", "air_pressure"))
   
+
   ## convert longwave to hourly (just copy 6 hourly values over past 6-hour time period)
   nonSW.flux.hrly <- forecasts %>%
     dplyr::select(timestamp, NOAA.member, surface_downwelling_longwave_flux_in_air) %>%
@@ -240,6 +241,11 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   ShortWave.ds = PEcAn.data.atmosphere::downscale_ShortWave_to_hrly(forecasts, time0, time_end, lat = lat.in, lon = lon.in, output_tz= "UTC")%>% 
     dplyr::group_by_at(c("NOAA.member", "timestamp")) %>% 
     dplyr::summarize(surface_downwelling_shortwave_flux_in_air = mean(surface_downwelling_shortwave_flux_in_air))
+  
+  ## Downscale Precipitation Flux 
+  precip.hrly <- forecasts %>% 
+    dplyr::select(timestamp, NOAA.member, precipitation_flux) %>%
+    tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, fill = list(value1 = 0)) 
   
   
   joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp"))
