@@ -14,20 +14,16 @@ plan(multisession)
 
 
 # ----------------------------------------------------------------------------------------------
-#------------------------------------------ That's all we need xml path and the out folder -----
+#------------------------------------------Prepared SDA Settings -----
 # ----------------------------------------------------------------------------------------------
 
 outputPath <- "/fs/data3/kzarada/ouput/LAI_Reanalysis/"
-nodata <- FALSE
-xmlTempName <-"gefs.sipnet.template.xml"
-restart <-FALSE
-days.obs <- 1  #how many of observed data to include -- not including today
+nodata <- FALSE #use this to run SDA with no data
+restart <-TRUE #flag to start from previous run or not
+days.obs <- 1  #how many of observed data *BY HOURS* to include -- not including today
 setwd(outputPath)
+options(warn=-1)
 
-
-reanalysis.start = as.POSIXct("2019-05-20", tz = "UTC")
-reanalysis.end = as.POSIXct("2019-05-22", tz = "UTC")
-dates = as.Date(seq(from = reanalysis.start, to = reanalysis.end, by = 'days'))
 
 #------------------------------------------------------------------------------------------------
 #------------------------------------------ sourcing the required tools -------------------------
@@ -43,68 +39,67 @@ c(
               package = "PEcAn.assim.sequential")
 ))
 
+#------------------------------------------------------------------------------------------------
+#------------------------------------------ Preparing the pecan xml -----------------------------
+#------------------------------------------------------------------------------------------------
 
-
-#for(i in 1:length(dates)){
-  i = 1
-  setwd("/fs/data3/kzarada/ouput/LAI_Reanalysis/")
-  options(warn=-1)
-  #changing start date 
-  start <- as.Date(dates[i])
-  
   #reading xml
-  settings <- read.settings("/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/gefs.sipnet.template.xml")
-  
+  settings <- read.settings("/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/testing.xml")
+
   #connecting to DB
   con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
-  
-  #------------------------------------------------------------------------------------------------
-  #------------------------------------------ Preparing the pecan xml -----------------------------
-  #------------------------------------------------------------------------------------------------
-  #--------------------------- Finding old sims
+
+  #Find last SDA Run to get new start date 
   all.previous.sims <- list.dirs(outputPath, recursive = F)
   if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
-
+    
     tryCatch({
       # Looking through all the old simulations and find the most recent
       all.previous.sims <- all.previous.sims %>%
         map(~ list.files(path = file.path(.x, "SDA"))) %>%
         setNames(all.previous.sims) %>%
-        discard( ~ !"SDA.pdf" %in% .x) # I'm throwing out the ones that they did not have a SDA output
-
+        discard( ~ !"sda.output.Rdata" %in% .x) # I'm throwing out the ones that they did not have a SDA output
+      
       last.sim <-
         names(all.previous.sims) %>%
         map_chr( ~ strsplit(.x, "_")[[1]][3]) %>%
         map_dfr(~ db.query(
-          query = paste("SELECT start_date FROM workflows WHERE id =", .x),
+          query = paste("SELECT * FROM workflows WHERE id =", .x),
           con = con
         ) %>%
           mutate(ID=.x)) %>%
         mutate(start_date = as.Date(start_date)) %>%
-        filter(start_date == (start - lubridate::days(1 + days.obs))) %>%
+        arrange(desc(start_date), desc(ID)) %>%
         head(1)
       # pulling the date and the path to the last SDA
       restart.path <-grep(last.sim$ID, names(all.previous.sims), value = T)
-      sda.start <- start
+      sda.start <- last.sim$start_date+ lubridate::days(3)
     },
     error = function(e) {
       restart.path <- NULL
-      sda.start <- NA
+      sda.start <- Sys.Date() - 9
       PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
     })
-
+    
     # if there was no older sims
     if (is.na(sda.start))
-      sda.start <- start
+      sda.start <- Sys.Date() - 9
   }
-  sda.start <- start
-  sda.end <- start
+  #to manually change start date 
+  #sda.start <-  as.POSIXct("2019-06-20", tz = "UTC")
+  sda.end <- sda.start + lubridate::days(2)
+  
+  # Finding the right end and start date
+  met.start <- sda.start - lubridate::days(2)
+  met.end <- met.start + lubridate::days(16)
+  
+  
   #-----------------------------------------------------------------------------------------------
   #------------------------------------------ Download met and flux ------------------------------
   #-----------------------------------------------------------------------------------------------
   #Fluxes
   prep.data <- prep.data.assim(
-    sda.start - 90,# it needs at least 90 days for gap filling 
+    sda.start - lubridate::days(90),# it needs at least 90 days for gap filling 
     sda.end,
     numvals = 100,
     vars = c("NEE", "LE"),
@@ -113,9 +108,6 @@ c(
   
   obs.raw <-prep.data$rawobs
   prep.data<-prep.data$obs
-  
-  
-
   
   # if there is infinte value then take it out - here we want to remove any that just have one NA in the observed data 
   prep.data <- prep.data %>% 
@@ -133,7 +125,7 @@ c(
     })
   
   
-  # Changing LE to Qle which is what sipnet expects
+  # Changing LE to Qle which is what SIPNET expects
   prep.data <- prep.data %>%
     map(function(day.data) {
       names(day.data$means)[names(day.data$means) == "LE"] <- "Qle"
@@ -147,13 +139,9 @@ c(
     })
   
   
-  # Finding the right end and start date
-  met.start <- obs.raw$Date%>% head(1) %>% lubridate::floor_date(unit = "day")
-  met.end <- met.start + lubridate::days(16)
-  
-  
-  
-  # Download MODIS LAI Data 
+  # --------------------------------------------------------------------------------------------------
+  #---------------------------------------------- LAI DATA -------------------------------------
+  # --------------------------------------------------------------------------------------------------
   
   site_info <- list(
     site_id = 676,
@@ -202,45 +190,28 @@ c(
     }
   )
   if(!exists('lai_sd')){lai_sd = NULL}
-  #pad Observed Data to match met data 
+  
+###### Pad Observed Data to forecast ############# 
   
   date <-
     seq(
-      from = lubridate::with_tz(as.POSIXct(first(sda.end), format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
-      to = lubridate::with_tz(as.POSIXct(first(sda.end) + lubridate::days(2), format = "%Y-%m-%d"), tz = "UTC"),
-      by = "6 hour"
+      from = lubridate::force_tz(as.POSIXct(last(names(prep.data)), format = "%Y-%m-%d %H:%M:%S"), tz = "UTC") + lubridate::hours(1),
+      to = lubridate::with_tz(as.POSIXct(first(sda.end) + lubridate::days(1), format = "%Y-%m-%d %H:%M:%S"), tz = "UTC"),
+      by = "1 hour"
     )
+  
   pad.prep <- obs.raw %>%
-    tidyr::complete(Date = seq(
-      from = lubridate::with_tz(as.POSIXct(first(sda.end), format = "%Y-%m-%d"), tz = "UTC") + lubridate::days(1),
-      to = lubridate::with_tz(as.POSIXct(first(sda.end) + lubridate::days(2), format = "%Y-%m-%d"), tz = "UTC"),
-      by = "6 hour"
-    )) %>%
+    tidyr::complete(Date = date) %>%
     mutate(means = NA, covs = NA) %>%
     dplyr::select(Date, means, covs) %>%
     dynutils::tibble_as_list()
   
   names(pad.prep) <-date
   
-  #create the data type to match the other data 
-  pad.cov <- matrix(data = c(NA, NA, NA, NA, NA, NA, NA, NA, NA ), nrow = 3, ncol = 3, dimnames = list(c("NEE", "Qle", "LAI"), c("NEE", "Qle", "LAI")))
-  pad.means = c(NA, NA, NA)
-  names(pad.means) <- c("NEE", "Qle", "LAI")
-  
-  #cycle through and populate the list 
-  
-  pad <- pad.prep %>% 
-    map(function(day.data){
-      day.data$means <- pad.means
-      day.data$covs <- pad.cov
-      day.data
-    })
-  
-  
+
   #Add in LAI info 
   
   if(is.null(lai)){index <- rep(FALSE, length(names(prep.data)))}else{
-    #index <- rep(TRUE, length(names(prep.data)))
     index <- as.Date(names(prep.data)) %in% as.Date(lai$calendar_date)
   }
   
@@ -260,18 +231,11 @@ c(
     }
   }
   
-  #add onto end of prep.data list 
+#add forecast pad to the obs data  
+    prep.data = c(prep.data, pad.prep)
   
-  
-  
-  prep.data = c(prep.data, pad)
-  
-  
-  # This line is what makes the SDA to run daily  ***** IMPORTANT CODE OVER HERE
-  prep.data<-prep.data %>%
-    discard(~lubridate::hour(.x$Date)!=0)
-  
-  
+#split into means and covs 
+    
   obs.mean <- prep.data %>%
                 map('means') %>% 
                 setNames(names(prep.data))
@@ -291,6 +255,7 @@ c(
   settings$run$site$met.end <- as.character(met.end)
   #info
   settings$info$date <- paste0(format(Sys.time(), "%Y/%m/%d %H:%M:%S"), " +0000")
+  
   # --------------------------------------------------------------------------------------------------
   #---------------------------------------------- PEcAn Workflow -------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -335,8 +300,8 @@ c(
   #sample from parameters used for both sensitivity analysis and Ens
   get.parameter.samples(settings, ens.sample.method = settings$ensemble$samplingspace$parameters$method)
   # Setting dates in assimilation tags - This will help with preprocess split in SDA code
-  settings$state.data.assimilation$start.date <-as.character(met.start)
-  settings$state.data.assimilation$end.date <-as.character(met.end - lubridate::hms("06:00:00"))
+  settings$state.data.assimilation$start.date <-as.character(first(names(obs.mean)))
+  settings$state.data.assimilation$end.date <-as.character(last(names(obs.mean)))
   
   if (nodata) {
     obs.mean <- obs.mean %>% map(function(x)
@@ -349,8 +314,6 @@ c(
   #--------------------------------- Restart -------------------------------------
   # --------------------------------------------------------------------------------------------------
   
-  #@Hamze - should we add a if statement here for the times that we don't want to copy the path?
-  # @Hamze: Yes if restart == TRUE 
   if(restart == TRUE){
     if(!dir.exists("SDA")) dir.create("SDA",showWarnings = F)
     
@@ -360,22 +323,32 @@ c(
     temp <- as.list(temp)
     
     #we want ANALYSIS, FORECAST, and enkf.parms to match up with how many days obs data we have
-    # +2 for days.obs since today is not included in the number. So we want to keep today and any other obs data 
+    # +24 because it's hourly now and we want the next day as the start 
     if(length(temp$ANALYSIS) > 1){
+      
+      for(i in 1:days.obs + 1){ 
+        temp$ANALYSIS[[i]] <- temp$ANALYSIS[[i + 24]]
+          }
       for(i in rev((days.obs + 2):length(temp$ANALYSIS))){ 
         temp$ANALYSIS[[i]] <- NULL
       }
       
-      for(i in rev((days.obs + 2):length(temp$FORECAST))){
+      
+      for(i in 1:days.obs + 1){ 
+        temp$FORECAST[[i]] <- temp$FORECAST[[i + 24]]
+      }
+      for(i in rev((days.obs + 2):length(temp$FORECAST))){ 
         temp$FORECAST[[i]] <- NULL
-      } 
-      
-      
-      for(i in rev((days.obs + 2):length(temp$enkf.params))){
-        temp$enkf.params[[i]] <- NULL
-      } 
-    }
+      }
     
+      for(i in 1:days.obs + 1){ 
+        temp$enkf.params[[i]] <- temp$enkf.params[[i + 24]]
+      }
+      for(i in rev((days.obs + 2):length(temp$enkf.params))){ 
+        temp$enkf.params[[i]] <- NULL
+      }    
+      
+    }
     temp$t = 1 
     
     #change inputs path to match sampling met paths 
@@ -410,13 +383,32 @@ c(
     #copy over run and out folders 
     
     if(!dir.exists("run")) dir.create("run",showWarnings = F)
-    copyDirectory(from = file.path(restart.path, "run/"), 
-                  to = file.path(settings$outdir, "run/"))
+    
+    files <- list.files(path = file.path(restart.path, "run/"), full.names = T, recursive = T, include.dirs = T, pattern = "sipnet.clim")
+    readfiles <- list.files(path = file.path(restart.path, "run/"), full.names = T, recursive = T, include.dirs = T, pattern = "README.txt")
+    
+    newfiles <- gsub(pattern = restart.path, settings$outdir, files)
+    readnewfiles <- gsub(pattern = restart.path, settings$outdir, readfiles)
+    
+    rundirs <- gsub(pattern = "/sipnet.clim", "", files)
+    rundirs <- gsub(pattern = restart.path, settings$outdir, rundirs)
+    for(i in 1 : length(rundirs)){
+      dir.create(rundirs[i]) 
+      file.copy(from = files[i], to = newfiles[i])
+      file.copy(from = readfiles[i], to = readnewfiles[i])} 
+    file.copy(from = paste0(restart.path, '/run/runs.txt'), to = paste0(settings$outdir,'/run/runs.txt' ))
+    
     if(!dir.exists("out")) dir.create("out",showWarnings = F)
-    copyDirectory(from = file.path(restart.path, "out/"), 
-                  to = file.path(settings$outdir, "out/"))
-  } #restart == TRUE
-  
+    
+    files <- list.files(path = file.path(restart.path, "out/"), full.names = T, recursive = T, include.dirs = T, pattern = "sipnet.out")
+    newfiles <- gsub(pattern = restart.path, settings$outdir, files)
+    outdirs <- gsub(pattern = "/sipnet.out", "", files)
+    outdirs <- gsub(pattern = restart.path, settings$outdir, outdirs)
+    for(i in 1 : length(outdirs)){
+      dir.create(outdirs[i]) 
+      file.copy(from = files[i], to = newfiles[i])} 
+    
+  } 
   # --------------------------------------------------------------------------------------------------
   #--------------------------------- Run state data assimilation -------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -438,7 +430,7 @@ c(
           interactivePlot =FALSE,
           TimeseriesPlot =TRUE,
           BiasPlot =FALSE,
-          debug = TRUE,
+          debug = FALSE,
           pause=FALSE
         )
       )
@@ -448,7 +440,7 @@ c(
   }
   
   
-#} #ending i loop 
+
 
 
 

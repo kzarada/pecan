@@ -16,9 +16,9 @@ plan(multisession)
 #------------------------------------------ That's all we need xml path and the out folder -----
 # ----------------------------------------------------------------------------------------------
 
-outputPath <- "/fs/data3/kzarada/output/SDA/"
+outputPath <- "/fs/data3/kzarada/output/StateData/"
 nodata <- TRUE
-restart <-TRUE
+restart <-FALSE
 days.obs <- 1  #how many of observed data to include -- not including today
 setwd(outputPath)
 
@@ -40,7 +40,7 @@ c(
 #--------------------------- Finding old sims
 
 
-  setwd("/fs/data3/kzarada/output/SDA/")
+  setwd("/fs/data3/kzarada/output/StateData/")
  
   #reading xml
   settings <- read.settings("/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/nodata.xml")
@@ -49,51 +49,51 @@ c(
   con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
   
   
-   
-all.previous.sims <- list.dirs(outputPath, recursive = F)
-if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
-  
-  tryCatch({
-    # Looking through all the old simulations and find the most recent
-    all.previous.sims <- all.previous.sims %>%
-      map(~ list.files(path = file.path(.x, "SDA"))) %>%
-      setNames(all.previous.sims) %>%
-      discard( ~ !"sda.output.Rdata" %in% .x) # I'm throwing out the ones that they did not have a SDA output
-    
-    last.sim <-
-      names(all.previous.sims) %>%  
-      map_chr( ~ strsplit(.x, "_")[[1]][2]) %>%
-      map_dfr(~ db.query(
-        query = paste("SELECT * FROM workflows WHERE id =", .x),
-        con = con
-      ) %>% 
-        mutate(ID=.x)) %>%
-      mutate(start_date = as.Date(start_date)) %>%
-      arrange(desc(start_date), desc(ID)) %>%
-      head(1)
-    # pulling the date and the path to the last SDA
-    restart.path <-grep(last.sim$ID, names(all.previous.sims), value = T)
-    sda.start <- last.sim$start_date+ lubridate::days(2)
-  },
-  error = function(e) {
-    restart.path <- NULL
-    sda.start <- Sys.Date() - 9
-    PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
-  })
-  
-  # if there was no older sims
-  if (is.na(sda.start))
-    sda.start <- Sys.Date() - 9
-}
-
-sda.end <- sda.start + lubridate::days(15)
+ #   
+ # all.previous.sims <- list.dirs(outputPath, recursive = F)
+ # if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
+ # 
+ #   tryCatch({
+ #     # Looking through all the old simulations and find the most recent
+ #     all.previous.sims <- all.previous.sims %>%
+ #       map(~ list.files(path = file.path(.x, "SDA"))) %>%
+ #       setNames(all.previous.sims) %>%
+ #       discard( ~ !"SDA.pdf" %in% .x) # I'm throwing out the ones that they did not have a SDA output
+ # 
+ #     last.sim <-
+ #       names(all.previous.sims) %>%
+ #       map_chr( ~ strsplit(.x, "_")[[1]][2]) %>%
+ #       map_dfr(~ db.query(
+ #         query = paste("SELECT * FROM workflows WHERE id =", .x),
+ #         con = con
+ #       ) %>%
+ #        mutate(ID=.x)) %>%
+ #       mutate(start_date = as.Date(start_date)) %>%
+ #       arrange(desc(start_date), desc(ID)) %>%
+ #       head(1)
+ #     # pulling the date and the path to the last SDA
+ #     restart.path <-grep(last.sim$ID, names(all.previous.sims), value = T)
+ #     sda.start <- last.sim$start_date + lubridate::days(3)
+ #   },
+ #   error = function(e) {
+ #     restart.path <- NULL
+ #     sda.start <- Sys.Date() - 1
+ #     PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
+ #   })
+ # 
+ #   # if there was no older sims
+ #   if (is.na(sda.start))
+ #     sda.start <- Sys.Date() - 9
+ # }
+sda.start <- Sys.Date()
+sda.end <- sda.start + lubridate::days(7)
 #-----------------------------------------------------------------------------------------------
 #------------------------------------------ Download met and flux ------------------------------
 #-----------------------------------------------------------------------------------------------
 
 
 # Finding the right end and start date
-met.start <- sda.start - lubridate::days(1)
+met.start <- sda.start - lubridate::days(2)
 met.end <- met.start + lubridate::days(16)
 
 
@@ -101,10 +101,11 @@ met.end <- met.start + lubridate::days(16)
 
 date <-
   seq(
-    from = lubridate::with_tz(as.POSIXct(sda.start, format = "%Y-%m-%d"), tz = "UTC"),
-    to = lubridate::with_tz(as.POSIXct(sda.end, format = "%Y-%m-%d"), tz = "UTC"),
-    by = "6 hour"
+    from = lubridate::with_tz(as.POSIXct(sda.start, format = "%Y-%m-%d %H:%M:%S"), tz = "UTC"),
+    to = lubridate::with_tz(as.POSIXct(sda.end, format = "%Y-%m-%d %H:%M:%S"), tz = "UTC"),
+    by = "1 hour"
   )
+
 pad.prep <- as.data.frame(cbind(Date = as.character(date), means = rep("NA", length(date)), covs = rep("NA", length(date)))) %>%
   dynutils::tibble_as_list()
 
@@ -113,10 +114,6 @@ names(pad.prep) <-date
 
 prep.data = pad.prep
 
-
-# # This line is what makes the SDA to run daily  ***** IMPORTANT CODE OVER HERE
-# prep.data<-prep.data %>%
-#   discard(~lubridate::hour(.x$Date)!=0)
 
 
 obs.mean <- prep.data %>%
@@ -183,11 +180,11 @@ if (!is.null(settings$meta.analysis)) {
 #sample from parameters used for both sensitivity analysis and Ens
 get.parameter.samples(settings, ens.sample.method = settings$ensemble$samplingspace$parameters$method)
 # Setting dates in assimilation tags - This will help with preprocess split in SDA code
-settings$state.data.assimilation$start.date <-as.character(sda.start)
-settings$state.data.assimilation$end.date <-as.character(sda.end )
+settings$state.data.assimilation$start.date <-as.character(first(names(obs.mean)))
+settings$state.data.assimilation$end.date <-as.character(last(names(obs.mean)))
+
 #- lubridate::hms("06:00:00")
-settings$run$start.date <- as.character(sda.start)
-settings$run$end.date <- as.character(sda.end)
+
 # --------------------------------------------------------------------------------------------------
 #--------------------------------- Restart -------------------------------------
 # --------------------------------------------------------------------------------------------------
@@ -201,22 +198,32 @@ if(restart == TRUE){
   temp <- as.list(temp)
   
   #we want ANALYSIS, FORECAST, and enkf.parms to match up with how many days obs data we have
-  # +2 for days.obs since today is not included in the number. So we want to keep today and any other obs data 
+  # +24 because it's hourly now and we want the next day as the start 
   if(length(temp$ANALYSIS) > 1){
+    
+    for(i in 1:days.obs + 1){ 
+      temp$ANALYSIS[[i]] <- temp$ANALYSIS[[i + 24]]
+    }
     for(i in rev((days.obs + 2):length(temp$ANALYSIS))){ 
       temp$ANALYSIS[[i]] <- NULL
     }
     
-    for(i in rev((days.obs + 2):length(temp$FORECAST))){
+    
+    for(i in 1:days.obs + 1){ 
+      temp$FORECAST[[i]] <- temp$FORECAST[[i + 24]]
+    }
+    for(i in rev((days.obs + 2):length(temp$FORECAST))){ 
       temp$FORECAST[[i]] <- NULL
-    } 
+    }
     
-    
-    for(i in rev((days.obs + 2):length(temp$enkf.params))){
+    for(i in 1:days.obs + 1){ 
+      temp$enkf.params[[i]] <- temp$enkf.params[[i + 24]]
+    }
+    for(i in rev((days.obs + 2):length(temp$enkf.params))){ 
       temp$enkf.params[[i]] <- NULL
-    } 
+    }    
+    
   }
-  
   temp$t = 1 
   
   #change inputs path to match sampling met paths 
@@ -254,16 +261,16 @@ if(restart == TRUE){
   
   files <- list.files(path = file.path(restart.path, "run/"), full.names = T, recursive = T, include.dirs = T, pattern = "sipnet.clim")
   readfiles <- list.files(path = file.path(restart.path, "run/"), full.names = T, recursive = T, include.dirs = T, pattern = "README.txt")
-
+  
   newfiles <- gsub(pattern = restart.path, settings$outdir, files)
   readnewfiles <- gsub(pattern = restart.path, settings$outdir, readfiles)
   
   rundirs <- gsub(pattern = "/sipnet.clim", "", files)
   rundirs <- gsub(pattern = restart.path, settings$outdir, rundirs)
   for(i in 1 : length(rundirs)){
-  dir.create(rundirs[i]) 
-  file.copy(from = files[i], to = newfiles[i])
-  file.copy(from = readfiles[i], to = readnewfiles[i])} 
+    dir.create(rundirs[i]) 
+    file.copy(from = files[i], to = newfiles[i])
+    file.copy(from = readfiles[i], to = readnewfiles[i])} 
   file.copy(from = paste0(restart.path, '/run/runs.txt'), to = paste0(settings$outdir,'/run/runs.txt' ))
   
   if(!dir.exists("out")) dir.create("out",showWarnings = F)
@@ -276,7 +283,7 @@ if(restart == TRUE){
     dir.create(outdirs[i]) 
     file.copy(from = files[i], to = newfiles[i])} 
   
-} #restart == TRUE
+} 
 
 # --------------------------------------------------------------------------------------------------
 #--------------------------------- Run state data assimilation -------------------------------------
