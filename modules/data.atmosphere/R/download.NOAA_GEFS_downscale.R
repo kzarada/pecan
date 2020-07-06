@@ -63,7 +63,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
     PEcAn.logger::logger.severe("Invalid dates: end date occurs before start date")
   } else if (as.numeric(end_date - start_date, units="hours") < 6) { #Done separately to produce a more helpful error message.
     PEcAn.logger::logger.severe("Times not far enough appart for a forecast to fall between them.  Forecasts occur every six hours; make sure start 
-                                and end dates are at least 6 hours appart.")
+                                and end dates are at least 6 hours apart.")
   }
   
   #Set the end forecast date (default is the full 16 days)
@@ -74,7 +74,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   
   #Round the starting date/time down to the previous block of 6 hours.  Adjust the time frame to match.
   forecast_hour = (lubridate::hour(start_date) %/% 6) * 6 #Integer division by 6 followed by re-multiplication acts like a "floor function" for multiples of 6
-  increments = as.integer(as.numeric(end_date - start_date, units = "hours") / 6) #Calculating the number of forecasts between start and end dates.
+  increments = as.integer(as.numeric(end_date - start_date, units = "hours") / 6) #Calculating the number of forecasts between start and end dates 
   increments = increments + ((lubridate::hour(end_date) - lubridate::hour(start_date)) %/% 6) #These calculations are required to use the rnoaa package.
   
   end_hour = sprintf("%04d", ((forecast_hour + (increments * 6)) %% 24) * 100)  #Calculating the starting hour as a string, which is required type to access the 
@@ -136,7 +136,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   noaa_data = list()
   
   #Downloading the data here.  It is stored in a matrix, where columns represent time in intervals of 6 hours, and rows represent
-  #each ensemble member.  Each variable getxs its own matrix, which is stored in the list noaa_data.
+  #each ensemble member.  Each variable gets its own matrix, which is stored in the list noaa_data.
  
   
    for (i in 1:length(noaa_var_names)) {
@@ -203,7 +203,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   #####################################
   #done with data processing- now want to take the list and make one df for downscaling
   
-  time = seq(from = start_date, to = end_date - lubridate::hours(6), by = "6 hour") 
+  time = seq(from = start_date + lubridate::hours(6), to = end_date, by = "6 hour") 
   forecasts = matrix(ncol = length(noaa_data)+ 2, nrow = 0)
   colnames(forecasts) <- c(cf_var_names, "timestamp", "NOAA.member")
   
@@ -245,7 +245,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   ## Downscale Precipitation Flux 
   precip.hrly <- forecasts %>% 
     dplyr::select(timestamp, NOAA.member, precipitation_flux) %>%
-    tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, fill = list(value1 = 0)) 
+    tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, nesting(NOAA.member), fill = list(precipitation_flux = 0)) 
   
   
   joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp"))
