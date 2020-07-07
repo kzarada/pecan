@@ -87,7 +87,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   
   end_date = start_date + lubridate::hours(increments * 6)
   
-
+  
   #Bounds date checking
   #NOAA's GEFS database maintains a rolling 12 days of forecast data for access through this function.
   #We do want Sys.Date() here - NOAA makes data unavaliable days at a time, not forecasts at a time.
@@ -137,11 +137,11 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   
   #Downloading the data here.  It is stored in a matrix, where columns represent time in intervals of 6 hours, and rows represent
   #each ensemble member.  Each variable gets its own matrix, which is stored in the list noaa_data.
- 
   
-   for (i in 1:length(noaa_var_names)) {
-     noaa_data[[i]] = rnoaa::gefs(noaa_var_names[i], lat.in, lon.in, raw=TRUE, time_idx = seq_len(increments), forecast_time = forecast_hour, date=format(start_date, "%Y%m%d"))$data
-   }
+  
+  for (i in 1:length(noaa_var_names)) {
+    noaa_data[[i]] = rnoaa::gefs(noaa_var_names[i], lat.in, lon.in, raw=TRUE, time_idx = seq_len(increments), forecast_time = forecast_hour, date=format(start_date, "%Y%m%d"))$data
+  }
   
   #Fills in data with NaNs if there happens to be missing columns.
   for (i in 1:length(noaa_var_names)) {
@@ -228,7 +228,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   ### Downscale state variables 
   gefs_hour <- PEcAn.data.atmosphere::downscale_spline_to_hourly(df = forecasts, VarNamesStates = c("air_temperature", "wind_speed", "specific_humidity", "air_pressure"))
   
-
+  
   ## convert longwave to hourly (just copy 6 hourly values over past 6-hour time period)
   nonSW.flux.hrly <- forecasts %>%
     dplyr::select(timestamp, NOAA.member, surface_downwelling_longwave_flux_in_air) %>%
@@ -243,12 +243,14 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
     dplyr::summarize(surface_downwelling_shortwave_flux_in_air = mean(surface_downwelling_shortwave_flux_in_air))
   
   ## Downscale Precipitation Flux 
+  #fills in the hours between the 6hr GEFS with zeros using the timestamp from downscaled Flux
   precip.hrly <- forecasts %>% 
-    dplyr::select(timestamp, NOAA.member, precipitation_flux) %>%
+    dplyr::select(timestamp, NOAA.member, precipitation_flux) %>% 
     tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, tidyr::nesting(NOAA.member), fill = list(precipitation_flux = 0)) 
   
-  
-  joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp"))
+  #join together the 4 different downscaled data frames
+  #checks for errors in downscaled data; removes NA times; replaces erroneous values with 0's or NA's 
+  joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp")) 
   joined<-  dplyr::inner_join(joined, precip.hrly, by = c("NOAA.member", "timestamp"))
   
   joined <- dplyr::inner_join(joined, ShortWave.ds, by = c("NOAA.member", "timestamp")) %>% 
