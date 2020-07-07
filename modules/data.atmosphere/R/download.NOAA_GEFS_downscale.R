@@ -245,7 +245,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   ## Downscale Precipitation Flux 
   precip.hrly <- forecasts %>% 
     dplyr::select(timestamp, NOAA.member, precipitation_flux) %>%
-    tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, nesting(NOAA.member), fill = list(precipitation_flux = 0)) 
+    tidyr::complete(timestamp = nonSW.flux.hrly$timestamp, tidyr::nesting(NOAA.member), fill = list(precipitation_flux = 0)) 
   
   
   joined<-  dplyr::inner_join(gefs_hour, nonSW.flux.hrly, by = c("NOAA.member", "timestamp"))
