@@ -140,8 +140,28 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   
   
   for (i in 1:length(noaa_var_names)) {
-    noaa_data[[i]] = rnoaa::gefs(noaa_var_names[i], lat.in, lon.in, raw=TRUE, time_idx = seq_len(increments), forecast_time = forecast_hour, date=format(start_date, "%Y%m%d"))$data
+    noaa_data[[i]] = rnoaa::gefs(noaa_var_names[i], lat.in, lon.in, raw=TRUE, time_idx = seq_len(increments + 1), forecast_time = forecast_hour, date=format(start_date, "%Y%m%d"))$data
   }
+
+  ### ERROR CHECK FOR FIRST TIME POINT ###
+  
+  #Check if first time point is present, if not, grab from previous forecast
+  
+  index <- which(lengths(noaa_data) == increments * 21) #finding which ones are missing first point
+  new_start = start_date - lubridate::hours(6) #grab previous forecast
+  new_forecast_hour = (lubridate::hour(new_start) %/% 6) * 6 #Integer division by 6 followed by re-multiplication acts like a "floor function" for multiples of 6
+  new_forecast_hour = sprintf("%04d", new_forecast_hour * 100)  #Having the end date as a string is useful later, too.
+  
+  filled_noaa_data = list()
+  
+  for (i in index) {
+    filled_noaa_data[[i]] = rnoaa::gefs(noaa_var_names[i], lat.in, lon.in, raw=TRUE, time_idx = 1, forecast_time = new_forecast_hour, date=format(new_start, "%Y%m%d"))$data
+  }
+  
+  #add filled data into first slot of forecast 
+  for(i in index){
+  noaa_data[[i]] = cbind(filled_noaa_data[[i]], noaa_data[[i]])}
+  
   
   #Fills in data with NaNs if there happens to be missing columns.
   for (i in 1:length(noaa_var_names)) {
@@ -203,7 +223,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   #####################################
   #done with data processing- now want to take the list and make one df for downscaling
   
-  time = seq(from = start_date + lubridate::hours(6), to = end_date, by = "6 hour") 
+  time = seq(from = start_date, to = end_date, by = "6 hour") 
   forecasts = matrix(ncol = length(noaa_data)+ 2, nrow = 0)
   colnames(forecasts) <- c(cf_var_names, "timestamp", "NOAA.member")
   
@@ -221,7 +241,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
     forecasts <- rbind(forecasts, index)
   }
   
-  forecasts <- forecasts %>% tidyr::drop_na()
+  forecasts <- forecasts %>% tidyr::drop_na() 
   #forecasts$timestamp <- as.POSIXct(rep(time, 21))
   forecasts$wind_speed <- sqrt(forecasts$eastward_wind^ 2 + forecasts$northward_wind^ 2)
   
@@ -297,7 +317,7 @@ download.NOAA_GEFS_downscale <- function(outfolder, lat.in, lon.in, sitename, st
   #to comply with the PEcAn standard).
   time_dim = ncdf4::ncdim_def(name="time", 
                               units = paste("hours since", format(start_date, "%Y-%m-%dT%H:%M")), 
-                              seq(from = 6, length.out = length(unique(joined$timestamp))), #GEFS forecast starts 6 hours from start time 
+                              seq(from = 0, length.out = length(unique(joined$timestamp))), #GEFS forecast starts 6 hours from start time 
                               create_dimvar = TRUE)
   lat_dim = ncdf4::ncdim_def("latitude", "degree_north", lat.in, create_dimvar = TRUE)
   lon_dim = ncdf4::ncdim_def("longitude", "degree_east", lon.in, create_dimvar = TRUE)
