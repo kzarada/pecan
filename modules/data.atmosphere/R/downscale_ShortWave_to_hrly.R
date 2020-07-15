@@ -36,7 +36,9 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
   ShortWave.hours$timestamp = time
   ShortWave.hours$NOAA.member =  rep(debiased$NOAA.member, each = 6)
   ShortWave.hours$hour = as.numeric(format(time, "%H"))
-  ShortWave.hours$group = as.numeric(as.factor(format(ShortWave.hours$time, "%d")))
+  ShortWave.hours$group = head(rep(seq(1, ceiling(length(time)/6)), each = 6), length(time))
+    
+    #as.numeric(as.factor(format(ShortWave.hours$time, "%d")))
   
   
   
@@ -50,5 +52,8 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
     dplyr::select(timestamp, NOAA.member, surface_downwelling_shortwave_flux_in_air) %>% 
     dplyr::filter(timestamp >= min(debiased$timestamp) & timestamp <= max(debiased$timestamp))  
   
+  #Replace Modeling SW with forecasted from original GEFS
+  index = which(ShortWave.ds$timestamp %in% debiased$timestamp)
+  ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <- debiased$surface_downwelling_shortwave_flux_in_air
   
 }
