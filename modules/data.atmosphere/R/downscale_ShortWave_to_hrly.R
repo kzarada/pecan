@@ -38,10 +38,7 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
   ShortWave.hours$hour = as.numeric(format(time, "%H"))
   ShortWave.hours$group = head(rep(seq(1, ceiling(length(time)/6)), each = 6), length(time))
     
-    #as.numeric(as.factor(format(ShortWave.hours$time, "%d")))
-  
-  
-  
+
   ShortWave.ds <- ShortWave.hours %>% 
     dplyr::mutate(doy = lubridate::yday(timestamp) + hour/24) %>%
     dplyr::mutate(rpot = downscale_solar_geom(doy, lon, lat)) %>% # hourly sw flux calculated using solar geometry
@@ -56,4 +53,5 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
   index = which(ShortWave.ds$timestamp %in% debiased$timestamp)
   ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <- debiased$surface_downwelling_shortwave_flux_in_air
   
+  return(ShortWave.ds)
 }
