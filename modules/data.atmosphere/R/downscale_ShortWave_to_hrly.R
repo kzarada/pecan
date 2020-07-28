@@ -51,7 +51,7 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
   
   #ERROR Check to see if values are more that 1.5% of max GEFS forecasted value
   index = which(ShortWave.ds$surface_downwelling_shortwave_flux_in_air > max(surface_downwelling_shortwave_flux_in_air) * 1.5)
-  ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <-  debiased$surface_downwelling_shortwave_flux_in_air[index]
+  ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <-  surface_downwelling_shortwave_flux_in_air[index]
   
   return(ShortWave.ds)
 }
