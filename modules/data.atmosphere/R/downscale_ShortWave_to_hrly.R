@@ -49,9 +49,9 @@ downscale_ShortWave_to_hrly <- function(debiased, time0, time_end, lat, lon, out
     dplyr::select(timestamp, NOAA.member, surface_downwelling_shortwave_flux_in_air) %>% 
     dplyr::filter(timestamp >= min(debiased$timestamp) & timestamp <= max(debiased$timestamp))  
   
-  #Replace Modeling SW with forecasted from original GEFS
-  index = which(ShortWave.ds$timestamp %in% debiased$timestamp)
-  ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <- debiased$surface_downwelling_shortwave_flux_in_air
+  #ERROR Check to see if values are more that 1.5% of max GEFS forecasted value
+  index = which(ShortWave.ds$surface_downwelling_shortwave_flux_in_air > max(surface_downwelling_shortwave_flux_in_air) * 1.5)
+  ShortWave.ds$surface_downwelling_shortwave_flux_in_air[index] <-  debiased$surface_downwelling_shortwave_flux_in_air[index]
   
   return(ShortWave.ds)
 }
