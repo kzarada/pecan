@@ -54,6 +54,9 @@ split_inputs.SIPNET <- function(settings, start.time, stop.time, inputs, overwri
     mutate(Date = strptime(paste(V2, V3), format = "%Y %j",   tz = "UTC")%>% as.POSIXct()) %>%
     mutate(Date = as.POSIXct(paste0(Date, ceiling(V4), ":00"), format = "%Y-%m-%d %H:%M", tz = "UTC")) %>% 
     filter(Date >= start.time, Date < stop.time) %>% 
+    dplyr::mutate(Date = strptime(paste(V2, V3), format = "%Y %j",   tz = "UTC")%>% as.POSIXct()) %>%
+    dplyr::mutate(Date = as.POSIXct(paste0(Date,  V4, ":00"), format = "%Y-%m-%d %H:%M", tz = "UTC")) %>% 
+    dplyr::filter(Date >= start.time, Date < stop.time) %>% 
     dplyr::select(-Date)
   
   
