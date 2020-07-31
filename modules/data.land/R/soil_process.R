@@ -46,7 +46,7 @@ soil_process <- function(settings, input, dbfiles, overwrite = FALSE,run.local=T
   #--------------------------------------------------------------------------------------------------#   
   # if we are reading from gSSURGO
   if (input$source=="gSSURGO"){
-    newfile<-extract_soil_gssurgo(outfolder, lat = latlon$lat, lon=latlon$lon)
+    newfile<-extract_soil_gssurgo(outfolder, lat = latlon$lat, lon=latlon$lon, settings)
     return(newfile)
   }
   #--------------------------------------------------------------------------------------------------# 
