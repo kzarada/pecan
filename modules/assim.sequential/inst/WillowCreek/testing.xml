@@ -132,7 +132,7 @@
    <driver>PostgreSQL</driver>
    <write>TRUE</write>
   </bety>
-  <dbfiles>/fs/data3/kzarada/pecan.data/dbfiles/</dbfiles>
+  <dbfiles>/projectnb/dietzelab/pecan.data/dbfiles/</dbfiles>
  </database>
  <pfts>
    <pft>
@@ -187,6 +187,6 @@
   <end.date>2018-12-20</end.date>
  </run>
   <host>
-    <name>localhost</name>
+     <name>localhost</name>
   </host>
 </pecan>

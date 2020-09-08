@@ -16,12 +16,12 @@ plan(multisession)
 #------------------------------------------ That's all we need xml path and the out folder -----
 # ----------------------------------------------------------------------------------------------
 
-outputPath <- "/fs/data3/kzarada/ouput"
+outputPath <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output"
 nodata <- FALSE
 xmlTempName <-"gefs.sipnet.template.xml"
 restart <-FALSE
 days.obs <- 3  #how many of observed data to include -- not including today
-remote = TRUE
+#remote = TRUE
 setwd(outputPath)
 #------------------------------------------------------------------------------------------------
 #------------------------------------------ sourcing the required tools -------------------------
@@ -159,7 +159,7 @@ tryCatch({
                     progress = TRUE)}, 
   error = function(e) {
     lai <- NULL
-    PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates",conditionMessage(e)))
+    PEcAn.logger::logger.warn(paste0("MODIS Data not available for these dates ",conditionMessage(e)))
   }
 )
 if(!exists('lai')){lai = NULL}

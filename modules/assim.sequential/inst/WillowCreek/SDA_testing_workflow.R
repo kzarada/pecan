@@ -17,10 +17,10 @@ plan(multisession)
 #------------------------------------------Prepared SDA Settings -----
 # ----------------------------------------------------------------------------------------------
 
-outputPath <- "/fs/data3/kzarada/ouput/LAI_Reanalysis/"
+outputPath <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output/"
 nodata <- FALSE #use this to run SDA with no data
 restart <-TRUE #flag to start from previous run or not
-days.obs <- 1  #how many of observed data *BY HOURS* to include -- not including today
+days.obs <- 3 #how many of observed data *BY HOURS* to include -- not including today
 setwd(outputPath)
 options(warn=-1)
 
@@ -247,7 +247,7 @@ c(
   #------------------------------------------ Fixing the settings --------------------------------
   #-----------------------------------------------------------------------------------------------
   #unlink existing IC files
-  sapply(paste0("/fs/data3/kzarada/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
+  sapply(paste0("/projectnb/dietzelab/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
   #Using the found dates to run - this will help to download mets
   settings$run$start.date <- as.character(met.start)
   settings$run$end.date <- as.character(met.end)
@@ -413,8 +413,19 @@ c(
   #--------------------------------- Run state data assimilation -------------------------------------
   # --------------------------------------------------------------------------------------------------
   
+  settings$host$name <- "geo.bu.edu"
+  settings$host$user <- 'kzarada'
+  settings$host$folder <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output"
+  settings$host$job.sh <- "module load udunits/2.2.26 R/3.5.1" 
+  settings$host$qsub <- 'qsub -l h_rt=24:00:00 -V -N @NAME@ -o @STDOUT@ -e @STDERR@'
+  settings$host$qsub.jobid <- 'Your job ([0-9]+) .*'
+  settings$host$qstat <- 'qstat -j @JOBID@ || echo DONE'
+  settings$host$tunnel <- '/tmp/tunnel'
+
   
-  #if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
+  
+  settings$model$binary = "/usr2/postdoc/istfer/SIPNET/1023/sipnet"
+  if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
   
   if ('state.data.assimilation' %in% names(settings)) {
     if (PEcAn.utils::status.check("SDA") == 0) {

@@ -131,7 +131,7 @@
    <driver>PostgreSQL</driver>
    <write>TRUE</write>
   </bety>
-  <dbfiles>/fs/data3/kzarada/pecan.data/dbfiles/</dbfiles>
+  <dbfiles>/projectnb/dietzelab/pecan.data/dbfiles/</dbfiles>
  </database>
  <pfts>
    <pft>
@@ -186,6 +186,13 @@
   <end.date>2018-12-20</end.date>
  </run>
   <host>
-    <name>localhost</name>
+    <name>geo.bu.edu</name>
+    <user>kzarada</user>
+    <folder>/projectnb/dietzelab/kzarada/US_WCr_SDA_output</folder>
+    <prerun>module load udunits/2.2.26 R/3.5.1</prerun>
+    <qsub>qsub -l h_rt=24:00:00 -q &apos;geo*&apos; -N @NAME@ -o @STDOUT@ -e @STDERR@ -S /bin/bash</qsub>
+    <qsub.jobid>Your job ([0-9]+) .*</qsub.jobid>
+    <qstat>qstat -j @JOBID@ || echo DONE</qstat>
+    <tunnel>/tmp/tunnel</tunnel>
   </host>
 </pecan>
