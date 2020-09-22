@@ -16,7 +16,7 @@ plan(multisession)
 #------------------------------------------ That's all we need xml path and the out folder -----
 # ----------------------------------------------------------------------------------------------
 
-outputPath <- "/fs/data3/kzarada/output/StateData/"
+outputPath <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output/NoData/"
 nodata <- TRUE
 restart <-FALSE
 days.obs <- 1  #how many of observed data to include -- not including today
@@ -117,14 +117,14 @@ prep.data = pad.prep
 
 
 obs.mean <- prep.data %>%
-  map('means') %>% 
+  purrr::map('means') %>% 
   setNames(names(prep.data))
-obs.cov <- prep.data %>% map('covs') %>% setNames(names(prep.data))
+obs.cov <- prep.data %>% purrr::map('covs') %>% setNames(names(prep.data))
 
 if (nodata) {
-  obs.mean <- obs.mean %>% map(function(x)
+  obs.mean <- obs.mean %>% purrr::map(function(x)
     return(NA))
-  obs.cov <- obs.cov %>% map(function(x)
+  obs.cov <- obs.cov %>% purrr::map(function(x)
     return(NA))
 }
 
@@ -133,7 +133,7 @@ if (nodata) {
 #------------------------------------------ Fixing the settings --------------------------------
 #-----------------------------------------------------------------------------------------------
 #unlink existing IC files
-sapply(paste0("/fs/data3/kzarada/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
+sapply(paste0("/projectnb/dietzelabe/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
 #Using the found dates to run - this will help to download mets
 settings$run$start.date <- as.character(met.start)
 settings$run$end.date <- as.character(met.end)
@@ -288,6 +288,17 @@ if(restart == TRUE){
 # --------------------------------------------------------------------------------------------------
 #--------------------------------- Run state data assimilation -------------------------------------
 # --------------------------------------------------------------------------------------------------
+
+
+settings$host$name <- "geo.bu.edu"
+settings$host$user <- 'kzarada'
+settings$host$folder <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output"
+settings$host$job.sh <- "module load udunits/2.2.26 R/3.5.1" 
+settings$host$qsub <- 'qsub -l h_rt=24:00:00 -V -N @NAME@ -o @STDOUT@ -e @STDERR@'
+settings$host$qsub.jobid <- 'Your job ([0-9]+) .*'
+settings$host$qstat <- 'qstat -j @JOBID@ || echo DONE'
+settings$host$tunnel <- '/tmp/tunnel'
+settings$model$binary = "/usr2/postdoc/istfer/SIPNET/1023/sipnet"
 
 
 #unlink(c('run','out'), recursive = T)

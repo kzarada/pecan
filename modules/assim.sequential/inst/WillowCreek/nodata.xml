@@ -131,7 +131,7 @@
    <driver>PostgreSQL</driver>
    <write>TRUE</write>
   </bety>
-  <dbfiles>/fs/data3/kzarada/pecan.data/dbfiles/</dbfiles>
+  <dbfiles>/projectnb/dietzelab/pecan.data/dbfiles/</dbfiles>
  </database>
  <pfts>
    <pft>

@@ -1,34 +1,34 @@
-# ----------------------------------------------------------------------
-#------------------------------------------ Load required libraries-----
-# ----------------------------------------------------------------------
-library("PEcAn.all")
-library("PEcAn.utils")
-library("PEcAn.data.remote")
-library("RCurl")
-library("REddyProc")
-library("tidyverse")
-library("furrr")
-library("R.utils")
-library("dynutils")
-library('nimble')
-plan(multisession)
+---
+title: "SDA Walkthrough"
+author: "K. Zarada"
+date: "5/21/2020"
+output: html_document
+---
 
+This is a basic walk through the Willow Creek SDA forecast. We currently have two workflows that I am working with but I am more concerned with you being familiar with the SDA_testing_workflow.R (which is in the modules/assim.sequential/inst/WillowCreek/ folder in PEcAn). 
 
-# ----------------------------------------------------------------------------------------------
-#------------------------------------------Prepared SDA Settings -----
-# ----------------------------------------------------------------------------------------------
+The SDA is an extension of our exisiting Willow Creek SIPNET forecast which you can see on the [flux dashboard](http://test-pecan.bu.edu/shiny/Flux_Dashboard/). This SIPNET forecast uses NOAA GEFS meterology data. [NOAA GEFS](https://www.ncdc.noaa.gov/data-access/model-data/model-datasets/global-ensemble-forecast-system-gefs) is a 16 day, 21 ensemble member forecast. You can also look at the NOAA GEFS ensembles on the NOAA GEFS tab of the flux dashboard. 
 
-outputPath <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output/"
+With the SDA, we are trying to update the previous forecast (instead of starting over each day like we do with the exisiting SIPTNET forecast) and incorporate other data streams into the forecast to make better predictions. So far, we have incorporated LAI. The next step is to bring in soil moisture, which is what I want you to work on this summer. 
+
+We'll start this process by downloading the soil moisture data from the Willow Creek tower and validating the forecasted soil moisture. I already have a script for the soil moisture download, but it would be good for you to look through it and possibilty update it (I wrote it a while ago). 
+
+Before we get to that though, let's go through the SDA and how to manually run it in PEcAn. This RMD doesn't have live code, so you should read it as you go through the SDA_test_workflow on your Rstudio. This workflow is where I test and debug the forecast. It only runs the forecast for a couple of days instead of the full 16. **NOTE** The SDA takes a really long time to run. It depends on how many time steps we are doing it for, but a three day run done hourly can take > 7 hours. 
+
+```
+outputPath <- "/fs/data3/kzarada/ouput/LAI_Reanalysis/"
 nodata <- FALSE #use this to run SDA with no data
-restart <- FALSE #flag to start from previous run or not
-days.obs <- 3 #how many of observed data *BY HOURS* to include -- not including today
+restart <-TRUE #flag to start from previous run or not
+days.obs <- 1  #how many of observed data *BY HOURS* to include -- not including today
 setwd(outputPath)
 options(warn=-1)
 
+``` 
 
-#------------------------------------------------------------------------------------------------
-#------------------------------------------ sourcing the required tools -------------------------
-#------------------------------------------------------------------------------------------------
+This first chunk of code names our *output path* (you can change this to wherever you are going to do runs in your working directory). We have a flag for *nodata* which would mean that we aren't inputing anything (this is not needed for this workflow). The flag for *restart* tells the SDA if we want it to start from the previous run or if we want it to start fresh. Our goal is to have it always running a restart, but sometimes it is easier to get something running without the restart and then debug the restart. *days.obs* tells how many **hours** we want to be observed before the forecast start. It just recently changed from days to hours which is why it's still *days.obs* If we are adding in more data, it might be useful to have more days observed but adding observed days will take away from the number of days we can forecast because the total number of days from the start of the obs.data to the sda.end have to be within 16 days to line up with the met data (remember that NOAA GEFS data is only 16 days long). 
+
+
+```
 c(
   'Utils.R',
   'download_WCr.R',
@@ -40,6 +40,7 @@ c(
               package = "PEcAn.assim.sequential")
 ))
 
+
 #------------------------------------------------------------------------------------------------
 #------------------------------------------ Preparing the pecan xml -----------------------------
 #------------------------------------------------------------------------------------------------
@@ -47,6 +48,16 @@ c(
   #reading xml
   settings <- read.settings("/fs/data3/kzarada/pecan/modules/assim.sequential/inst/WillowCreek/testing.xml")
 
+```
+
+This next part downloads some necessary functions to get the Willow Creek flux data from the tower. Then we read the xml. The xml is how we tell PEcAN what we want. The xml is very important and can impact a lot.
+
+For the testing workflow, we are using `testing.xml`. Most of the xml is actually updated in the SDA workflow - like the start dates and such- but if we want to change things like the ensemble number (10 in the testing xml, usually > 100) or add or remove variables, we have to do it in the xml. You can read more about the xml in PEcAn [here.](https://pecanproject.github.io/pecan-documentation/develop/pecanXML.html)
+
+
+The next section finds that last SDA run in the output folder (that completed) and gets the date and file path from it and then makes the sda.start the day following. It looks into our output folder and gets every directory within the folder. It then removes any directory that doesn't have an sda.output.Rdata because these runs did not finish. It finds the start date from the last simulation and adds 3 days to make a new start date. We're adding three days here because the met.start day is saved in BETY (our SQL database) and our met data is 2 days behind the sda.start date AND we want the sda to run for the next day- making 3. We then get a new `sda.end` and `met.start` and `met.end`. The days added to the sda.end will impact how long our forecast is, so as we get better forecasts, we should increase that to get more. BUT we have to be careful not to exceed the length of the met data. 
+
+```
   #connecting to DB
   con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
 
@@ -63,7 +74,7 @@ c(
       
       last.sim <-
         names(all.previous.sims) %>%
-        map_chr( ~ strsplit(.x, "_")[[1]][5]) %>%
+        map_chr( ~ strsplit(.x, "_")[[1]][3]) %>%
         map_dfr(~ db.query(
           query = paste("SELECT * FROM workflows WHERE id =", .x),
           con = con
@@ -93,9 +104,13 @@ c(
   # Finding the right end and start date
   met.start <- sda.start - lubridate::days(2)
   met.end <- met.start + lubridate::days(16)
-  
-  
-  #-----------------------------------------------------------------------------------------------
+```
+
+
+Next we download the existing flux data. This uses the prep.data.assim, gapfill_WCr, and download_WCr functions that we sourced in earlier. The download_WCr gets the Flux data from where it is saved online. The gapfill uses a function to fill any missing data in the Fluxes because that can cause issues, and the prep.data preps is where we change the units if we want (I currently am not changing the units because I want them to be larger numbers for the matrix algebra that occurs in the analysis step). Prep.data also calculates the covariance and the means. We then remove any NA's because that messes things up and we change 'LE' to 'Qle' because SIPNET looks for 'Qle'. 
+
+```
+#-----------------------------------------------------------------------------------------------
   #------------------------------------------ Download met and flux ------------------------------
   #-----------------------------------------------------------------------------------------------
   #Fluxes
@@ -110,6 +125,7 @@ c(
   obs.raw <-prep.data$rawobs
   prep.data<-prep.data$obs
   
+
   # if there is infinte value then take it out - here we want to remove any that just have one NA in the observed data 
   prep.data <- prep.data %>% 
     map(function(day.data){
@@ -139,8 +155,13 @@ c(
       day.data
     })
   
-  
-  # --------------------------------------------------------------------------------------------------
+```
+
+
+Next, we download LAI data from MODIS. This isn't all that important for you to know. I want you to instead look at how we incoproate LAI data with the flux data to get it to the SDA. When you are prepping data to be added to the SDA, you need to make sure that we are comparing apples to apples. So the units need to be what SIPNET expects and it needs to match up with the output of SIPNET for the validation step. 
+
+```
+# --------------------------------------------------------------------------------------------------
   #---------------------------------------------- LAI DATA -------------------------------------
   # --------------------------------------------------------------------------------------------------
   
@@ -192,6 +213,14 @@ c(
   )
   if(!exists('lai_sd')){lai_sd = NULL}
   
+```
+
+Here, we pad the observed data so we can create a forecast. We put this into the SDA with NA's so it will forecast. We can change the date sequence to days or different hours to change our time step for the forecast.
+
+
+
+```
+
 ###### Pad Observed Data to forecast ############# 
   
   date <-
@@ -209,8 +238,12 @@ c(
   
   names(pad.prep) <-date
   
+```
 
-  #Add in LAI info 
+This is a section I want you to pay particular attention to. This is where I add in the LAI data to the observed data. We need to add it to the means and also add in a covariance matrix. For now, we are having LAI have 0 covariance with NEE and Qle. We'll have to discuss what to put for any other data that we put in. 
+
+```
+ #Add in LAI info 
   
   if(is.null(lai)){index <- rep(FALSE, length(names(prep.data)))}else{
     index <- as.Date(names(prep.data)) %in% as.Date(lai$calendar_date)
@@ -231,6 +264,11 @@ c(
       
     }
   }
+```
+
+Here we combine the observed data with the padded forecasted dates and then split the data into obs.mean and obs.cov
+
+```
   
 #add forecast pad to the obs data  
     prep.data = c(prep.data, pad.prep)
@@ -242,14 +280,17 @@ c(
                 setNames(names(prep.data))
   obs.cov <- prep.data %>% map('covs') %>% setNames(names(prep.data))
   
-  
- 
+```
+
+The next section fixes the settings in the xml and starts the runs to prep for the SDA. This is a normal part of the PEcAn workflow
+
+```
   
   #-----------------------------------------------------------------------------------------------
   #------------------------------------------ Fixing the settings --------------------------------
   #-----------------------------------------------------------------------------------------------
   #unlink existing IC files
-  sapply(paste0("/projectnb/dietzelab/pecan.data/dbfiles/BADM_site_0-676/IC_site_0-676_", 1:100, ".nc"), unlink)
+  sapply(paste0("/fs/data3/kzarada/pecan.data/dbfiles/IC_site_0-676_", 1:100, ".nc"), unlink)
   #Using the found dates to run - this will help to download mets
   settings$run$start.date <- as.character(met.start)
   settings$run$end.date <- as.character(met.end)
@@ -257,29 +298,6 @@ c(
   settings$run$site$met.end <- as.character(met.end)
   #info
   settings$info$date <- paste0(format(Sys.time(), "%Y/%m/%d %H:%M:%S"), " +0000")
-  
-  
-  ######### Check for input files and insert paths #############
-  con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
-  
-  input_check <- PEcAn.DB::dbfile.input.check(
-    siteid=settings$run$site$id %>% as.character(),
-    startdate = settings$run$start.date %>% as.Date,
-    enddate = settings$run$end.date %>% as.Date,
-    parentid = NA,
-    mimetype="application/x-netcdf",
-    formatname="CF Meteorology",
-    con,
-    hostname = PEcAn.remote::fqdn(),
-    exact.dates = TRUE,
-    pattern = "NOAA_GEFS_downscale",
-    return.all=TRUE
-  ) 
-  
-  PEcAn.DB::db.close(con)
-  
- if(length(input_check$id) > 0){for(i in 1:length(input_check$id)){ settings$run$inputs$met$id[i] = input_check$id[i] }
-   for(i in 1:length(input_check$file_path)){ settings$run$inputs$met$path[i] = file.path(input_check$file_path[i], input_check$file_name[i]) } } 
   
   # --------------------------------------------------------------------------------------------------
   #---------------------------------------------- PEcAn Workflow -------------------------------------
@@ -302,7 +320,7 @@ c(
     file.remove(statusFile)
   }
   # Do conversions
-  settings <- PEcAn.workflow::do_conversions(settings)
+  settings <- PEcAn.workflow::do_conversions(settings, T, T, T)
   
   # Query the trait database for data and priors
   if (PEcAn.utils::status.check("TRAIT") == 0) {
@@ -334,8 +352,14 @@ c(
     obs.cov <- obs.cov %>% map(function(x)
       return(NA))
   }
-  
-  # --------------------------------------------------------------------------------------------------
+```
+
+The last part of this makes the obs.mean/cov NA if we want to do a nodata run. 
+
+This next section preps for the restart. We want the ANALYSIS and FORECAST sections to line up with our obs.mean/cov and to be our first time step. This gets the forecast to start from our predictions yesterday instead of starting over. 
+
+```
+# --------------------------------------------------------------------------------------------------
   #--------------------------------- Restart -------------------------------------
   # --------------------------------------------------------------------------------------------------
   
@@ -433,23 +457,14 @@ c(
       dir.create(outdirs[i]) 
       file.copy(from = files[i], to = newfiles[i])} 
     
-  } 
-  # --------------------------------------------------------------------------------------------------
-  #--------------------------------- Run state data assimilation -------------------------------------
-  # --------------------------------------------------------------------------------------------------
-  
-  settings$host$name <- "geo.bu.edu"
-  settings$host$user <- 'kzarada'
-  settings$host$folder <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output"
-  settings$host$job.sh <- "module load udunits/2.2.26 R/3.5.1" 
-  settings$host$qsub <- 'qsub -l h_rt=24:00:00 -V -N @NAME@ -o @STDOUT@ -e @STDERR@'
-  settings$host$qsub.jobid <- 'Your job ([0-9]+) .*'
-  settings$host$qstat <- 'qstat -j @JOBID@ || echo DONE'
-  settings$host$tunnel <- '/tmp/tunnel'
-  settings$model$binary = "/usr2/postdoc/istfer/SIPNET/1023/sipnet"
-  
-  
-  if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
+  }
+```
+
+
+And, finally. We have the function to run the SDA. I would recommend changing debug to = TRUE so you can walk through the function manually to see what all is going on. You can also look through the function in 'pecan/modules/assim.sequential/R/sda.enfk_refactored.R' to see what is going on. 
+
+```
+#if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
   
   if ('state.data.assimilation' %in% names(settings)) {
     if (PEcAn.utils::status.check("SDA") == 0) {
@@ -473,9 +488,7 @@ c(
       PEcAn.utils::status.end()
     }
   }
-  
-  
+```
 
 
-
-
+Okay so this is just a basic run down of what is going on in the SDA Forecast workflow. There is a lot going on here and a lot to learn, so play with this and let me know what questions you have with it. Once you are more comfortable with this workflow, we'll dive into the soil moisture download. 
