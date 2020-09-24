@@ -258,29 +258,9 @@ c(
   #info
   settings$info$date <- paste0(format(Sys.time(), "%Y/%m/%d %H:%M:%S"), " +0000")
   
+
   
-  ######### Check for input files and insert paths #############
-  con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
-  
-  input_check <- PEcAn.DB::dbfile.input.check(
-    siteid=settings$run$site$id %>% as.character(),
-    startdate = settings$run$start.date %>% as.Date,
-    enddate = settings$run$end.date %>% as.Date,
-    parentid = NA,
-    mimetype="application/x-netcdf",
-    formatname="CF Meteorology",
-    con,
-    hostname = PEcAn.remote::fqdn(),
-    exact.dates = TRUE,
-    pattern = "NOAA_GEFS_downscale",
-    return.all=TRUE
-  ) 
-  
-  PEcAn.DB::db.close(con)
-  
- if(length(input_check$id) > 0){for(i in 1:length(input_check$id)){ settings$run$inputs$met$id[i] = input_check$id[i] }
-   for(i in 1:length(input_check$file_path)){ settings$run$inputs$met$path[i] = file.path(input_check$file_path[i], input_check$file_name[i]) } } 
-  
+
   # --------------------------------------------------------------------------------------------------
   #---------------------------------------------- PEcAn Workflow -------------------------------------
   # --------------------------------------------------------------------------------------------------
@@ -302,8 +282,79 @@ c(
     file.remove(statusFile)
   }
   # Do conversions
-  settings <- PEcAn.workflow::do_conversions(settings)
   
+  ######### Check for input files and insert paths #############
+  con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
+  
+  input_check <- PEcAn.DB::dbfile.input.check(
+    siteid=settings$run$site$id %>% as.character(),
+    startdate = settings$run$start.date %>% as.Date,
+    enddate = settings$run$end.date %>% as.Date,
+    parentid = NA,
+    mimetype="application/x-netcdf",
+    formatname="CF Meteorology",
+    con,
+    hostname = PEcAn.remote::fqdn(),
+    exact.dates = TRUE,
+    pattern = "NOAA_GEFS_downscale",
+    return.all=TRUE
+  ) 
+  
+clim_check = list() 
+for(i in 1:length(input_check$id)){
+  clim_check[[i]] = file.path(PEcAn.DB::dbfile.input.check(
+  siteid=settings$run$site$id %>% as.character(),
+  startdate = settings$run$start.date %>% as.Date,
+  enddate = settings$run$end.date %>% as.Date,
+  parentid = input_check$container_id[i],
+  mimetype="text/csv",
+  formatname="Sipnet.climna",
+  con,
+  hostname = PEcAn.remote::fqdn(),
+  exact.dates = TRUE,
+  pattern = "NOAA_GEFS_downscale",
+  return.all=TRUE
+  )$file_path, PEcAn.DB::dbfile.input.check(
+    siteid=settings$run$site$id %>% as.character(),
+    startdate = settings$run$start.date %>% as.Date,
+    enddate = settings$run$end.date %>% as.Date,
+    parentid = input_check$container_id[i],
+    mimetype="text/csv",
+    formatname="Sipnet.climna",
+    con,
+    hostname = PEcAn.remote::fqdn(),
+    exact.dates = TRUE,
+    pattern = "NOAA_GEFS_downscale",
+    return.all=TRUE
+  )$file_name)} 
+  
+  #If INPUTS already exsits, add id and met path to settings file 
+  
+  if(length(input_check$id) > 0){
+    index_id = list() 
+    index_path = list()
+    for(i in 1:length(input_check$id)){
+      index_id[[i]] = as.character(dbfile.id(type = "Input", 
+                                             file = file.path(input_check$file_path, 
+                                                              input_check$file_name)[i], con = con))#get ids as list
+      
+    }#end i loop for making lists 
+    names(index_id) = sprintf("id%s",seq(1:length(input_check$id))) #rename list 
+    names(clim_check) = sprintf("path%s",seq(1:length(input_check$id)))
+    
+    settings$run$inputs$met$id = index_id
+    settings$run$inputs$met$path = clim_check
+  }
+
+settings <- PEcAn.workflow::do_conversions(settings)          #end if loop for existing inputs  
+  
+  if(is_empty(settings$run$inputs$met$path) & length(clim_check)>0){
+    settings$run$inputs$met$id = index_id
+    settings$run$inputs$met$path = clim_check
+  }
+
+
+  PEcAn.DB::db.close(con)
   # Query the trait database for data and priors
   if (PEcAn.utils::status.check("TRAIT") == 0) {
     PEcAn.utils::status.start("TRAIT")
