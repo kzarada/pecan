@@ -346,7 +346,7 @@ for(i in 1:length(input_check$id)){
     settings$run$inputs$met$path = clim_check
   }
 
-settings <- PEcAn.workflow::do_conversions(settings)          #end if loop for existing inputs  
+  settings <- PEcAn.workflow::do_conversions(settings)          #end if loop for existing inputs  
   
   if(is_empty(settings$run$inputs$met$path) & length(clim_check)>0){
     settings$run$inputs$met$id = index_id
