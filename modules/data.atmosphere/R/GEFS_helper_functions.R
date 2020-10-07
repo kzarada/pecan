@@ -175,7 +175,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   }else{
     print(paste("Existing", forecast_date, cycle))
   }
-}
+} #noaa_grid_download 
 
 
 #' Extract and temporally downscale points from downloaded grid files
@@ -326,8 +326,6 @@ process_gridded_noaa_download <- function(lat_list,
   
   if(all_downloaded){
     
-    print(file.path(model_name_raw_dir,forecast_date,cycle))
-    
     ens_index <- 1:31
     #Run download_downscale_site() over the site_index
     output <- parallel::mclapply(X = ens_index,
@@ -435,6 +433,7 @@ process_gridded_noaa_download <- function(lat_list,
     # Convert the 3 hr precip rate to per second.
     forecast_noaa$precipitation_flux <- forecast_noaa$precipitation_flux / (60 * 60 * 3)
     
+    results_list = list()
     for (ens in 1:31) { # i is the ensemble number
       
       #Turn the ensemble number into a string
@@ -476,14 +475,19 @@ process_gridded_noaa_download <- function(lat_list,
         fname_ds <- paste0(identifier_ds, ".nc")
         ensemble_folder_ds = file.path(output_directory, identifier)
         output_file_ds <- file.path(ensemble_folder,fname)
-        
+        results$file <- fname_ds
+        results$dbfile.name <- output_file_ds
+        results[[ens]] <- results
         
         #Run downscaling
         noaaGEFSpoint::temporal_downscale(input_file = output_file, output_file = output_file_ds, overwrite = TRUE, hr = 1)
       }
+      
+     
     }
   }
-}
+  return(results_list)
+} #process_gridded_noaa_download
 
 #' @title Downscale NOAA GEFS frin 6hr to 1hr
 #' @return None
@@ -601,7 +605,7 @@ temporal_downscale <- function(input_file, output_file, overwrite = TRUE, hr = 1
                                         output_file = output_file,
                                         overwrite = overwrite)
   
-}
+} #temporal_downscale
 
 #' @title Downscale spline to hourly
 #' @return A dataframe of downscaled state variables

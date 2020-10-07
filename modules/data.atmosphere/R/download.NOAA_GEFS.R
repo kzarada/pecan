@@ -16,11 +16,14 @@
 
 
 download.NOAA_GEFS <- function(site_id,
+                               sitename = NULL,
+                               username = 'pecan',
                                lat.in,
                                lon.in,
                                outfolder,
                                forecast_time = "0",
                                start_date= Sys.Date(),
+                               end_date = NULL,
                                downscale = TRUE,
                                overwrite = FALSE){
   
@@ -38,7 +41,6 @@ download.NOAA_GEFS <- function(site_id,
                                             forecast_time = forecast_time,
                                             forecast_date = start_date,
                                             model_name_raw = model_name_raw,
-                                            num_cores = num_cores,
                                             output_directory = outfolder)
     
   PEcAn.data.atmosphere::process_gridded_noaa_download(lat_list = lat.in,
@@ -49,7 +51,6 @@ download.NOAA_GEFS <- function(site_id,
                                                       model_name = model_name,
                                                       model_name_ds = model_name_ds,
                                                       model_name_raw = model_name_raw,
-                                                      num_cores = num_cores,
                                                       output_directory = output_folder)
   
 }
