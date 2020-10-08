@@ -6,11 +6,14 @@
 \usage{
 download.NOAA_GEFS(
   site_id,
+  sitename = NULL,
+  username = "pecan",
   lat.in,
   lon.in,
   outfolder,
   forecast_time = "0",
   start_date = Sys.Date(),
+  end_date = NULL,
   downscale = TRUE,
   overwrite = FALSE
 )

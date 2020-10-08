@@ -51,6 +51,6 @@ download.NOAA_GEFS <- function(site_id,
                                                       model_name = model_name,
                                                       model_name_ds = model_name_ds,
                                                       model_name_raw = model_name_raw,
-                                                      output_directory = output_folder)
+                                                      output_directory = outfolder)
   
 }
