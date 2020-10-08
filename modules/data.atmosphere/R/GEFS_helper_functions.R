@@ -434,6 +434,8 @@ process_gridded_noaa_download <- function(lat_list,
     forecast_noaa$precipitation_flux <- forecast_noaa$precipitation_flux / (60 * 60 * 3)
     
     results_list = list()
+    results = list()
+    
     for (ens in 1:31) { # i is the ensemble number
       
       #Turn the ensemble number into a string
@@ -477,7 +479,7 @@ process_gridded_noaa_download <- function(lat_list,
         output_file_ds <- file.path(ensemble_folder,fname)
         results$file <- fname_ds
         results$dbfile.name <- output_file_ds
-        results[[ens]] <- results
+        results_list[[ens]] <- results
         
         #Run downscaling
         noaaGEFSpoint::temporal_downscale(input_file = output_file, output_file = output_file_ds, overwrite = TRUE, hr = 1)
