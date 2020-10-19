@@ -11,6 +11,7 @@ process_gridded_noaa_download(
   downscale,
   overwrite,
   forecast_date,
+  forecast_time,
   model_name,
   model_name_ds,
   model_name_raw,

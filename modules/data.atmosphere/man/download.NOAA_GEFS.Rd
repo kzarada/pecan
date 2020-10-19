@@ -11,8 +11,8 @@ download.NOAA_GEFS(
   lat.in,
   lon.in,
   outfolder,
-  forecast_time = "0",
   start_date = Sys.Date(),
+  forecast_time = "0",
   end_date = NULL,
   downscale = TRUE,
   overwrite = FALSE

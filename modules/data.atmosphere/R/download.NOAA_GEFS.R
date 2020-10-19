@@ -21,8 +21,8 @@ download.NOAA_GEFS <- function(site_id,
                                lat.in,
                                lon.in,
                                outfolder,
-                               forecast_time = "0",
                                start_date= Sys.Date(),
+                               forecast_time = "0",
                                end_date = NULL,
                                downscale = TRUE,
                                overwrite = FALSE){
@@ -38,20 +38,21 @@ download.NOAA_GEFS <- function(site_id,
     
   PEcAn.data.atmosphere::noaa_grid_download(lat_list = lat.in,
                                             lon_list = lon.in,
-                                            forecast_time = forecast_time,
+                                            forecast_time = "0",
                                             forecast_date = start_date,
                                             model_name_raw = model_name_raw,
                                             output_directory = outfolder)
     
-  PEcAn.data.atmosphere::process_gridded_noaa_download(lat_list = lat.in,
+  results <- PEcAn.data.atmosphere::process_gridded_noaa_download(lat_list = lat.in,
                                                       lon_list = lon.in,
                                                       site_id = site_id,
                                                       downscale = downscale,
                                                       overwrite = overwrite,
                                                       forecast_date = as.Date(start_date),
+                                                      forecast_time = "0",
                                                       model_name = model_name,
                                                       model_name_ds = model_name_ds,
                                                       model_name_raw = model_name_raw,
                                                       output_directory = outfolder)
-  
+  return(results)
 }

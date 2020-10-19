@@ -35,28 +35,29 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
       file_name <- paste0(base_filename2, curr_hours[i])
       
       destfile <- paste0(working_directory,"/", file_name,".neon.grib")
-      
       if(file.exists(destfile)){
-        size <- file.info(destfile)$size
-        if(i == 1){
-          max_size <- max_file_size_f000
-        }else{
-          max_size <- max_file_size
-        }
         
-        if(size == 0 | size <= (0.90 * max_size)){
-          incorrect_size <- TRUE
-        }else{
-          incorrect_size <- FALSE
+        fsz <- file.info(destfile)$size
+        gribf <- file(destfile, "rb")
+        fsz4 <- fsz-4
+        seek(gribf,where = fsz4,origin = "start")
+        last4 <- readBin(gribf,"raw",4)
+        if(as.integer(last4[1])==55 & as.integer(last4[2])==55 & as.integer(last4[3])==55 & as.integer(last4[4])==55) {
+          download_file <- FALSE
+        } else {
+          download_file <- TRUE
         }
+        close(gribf)
+        
+  
       }else{
-        incorrect_size <- FALSE
+        download_file <- TRUE
       }
       
-      if(!file.exists(destfile) | incorrect_size){
+      if(download_file){
         
-        out <- tryCatch(utils::download.file(url= paste0(base_filename1, file_name, vars, location, directory),
-                                             destfile = destfile, quiet = TRUE),
+        out <- tryCatch(download.file(paste0(base_filename1, file_name, vars, location, directory),
+                                      destfile = destfile, quiet = TRUE),
                         error = function(e){
                           warning(paste(e$message, "skipping", file_name),
                                   call. = FALSE)
@@ -116,25 +117,15 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   
   if(!(forecast_date %in% potential_dates)){PEcAn.logger::logger.error("Forecast Date Not Available")}
   
-  
+  forecast_date <- lubridate::as_date(forecast_date)
   cycle <- forecast_time
   
   if(cycle < 10) cycle <- paste0("0",cycle)
   
-  
   model_date_hour_dir <- file.path(model_dir,forecast_date,cycle)
   if(!dir.exists(model_date_hour_dir)){
     dir.create(model_date_hour_dir, recursive=TRUE, showWarnings = FALSE)
-    max_file_size_f000 <- 0
-    max_file_size <- 0
-    
-  }else{
-    f1 <- list.files(model_date_hour_dir, pattern = "f000", full.names = TRUE)
-    f2<- list.files(model_date_hour_dir, full.names = TRUE)
-    max_file_size_f000 <- max(file.info(f1)$size)
-    max_file_size <- max(file.info(f2)$size)
   }
-  
   
   new_download <- TRUE
   
@@ -201,6 +192,7 @@ process_gridded_noaa_download <- function(lat_list,
                                           downscale,
                                           overwrite,
                                           forecast_date,
+                                          forecast_time,
                                           model_name,
                                           model_name_ds,
                                           model_name_raw,
@@ -308,18 +300,18 @@ process_gridded_noaa_download <- function(lat_list,
   raw_files <- list.files(file.path(model_name_raw_dir,forecast_date,cycle))
   hours_present <- as.numeric(stringr::str_sub(raw_files, start = 25, end = 27))
   
-  all_downloaded <- FALSE
-  if(cycle == "00"){
-    #Sometime the 16-35 day forecast is not competed for some of the forecasts.  If over 24 hrs has passed then they won't show up.
-    #Go ahead and create the netcdf files
-    if(length(which(hours_present == 840)) == 30 | (length(which(hours_present == 384)) == 30 & curr_forecast_time + lubridate::hours(24) < curr_time)){
-      all_downloaded <- TRUE
-    }
-  }else{
-    if(length(which(hours_present == 384)) == 31 | (length(which(hours_present == 384)) == 31 & curr_forecast_time + lubridate::hours(24) < curr_time)){
-      all_downloaded <- TRUE
-    }
-  }
+  all_downloaded <- TRUE
+  # if(cycle == "00"){
+  #   #Sometime the 16-35 day forecast is not competed for some of the forecasts.  If over 24 hrs has passed then they won't show up.
+  #   #Go ahead and create the netcdf files
+  #   if(length(which(hours_present == 840)) == 30 | (length(which(hours_present == 384)) == 30 & curr_forecast_time + lubridate::hours(24) < curr_time)){
+  #     all_downloaded <- TRUE
+  #   }
+  # }else{
+  #   if(length(which(hours_present == 384)) == 31 | (length(which(hours_present == 384)) == 31 & curr_forecast_time + lubridate::hours(24) < curr_time)){
+  #     all_downloaded <- TRUE
+  #   }
+  # }
   
   
   
@@ -434,8 +426,15 @@ process_gridded_noaa_download <- function(lat_list,
     # Convert the 3 hr precip rate to per second.
     forecast_noaa$precipitation_flux <- forecast_noaa$precipitation_flux / (60 * 60 * 3)
     
+    
+    
+    # Create a data frame with information about the file.  This data frame's format is an internal PEcAn standard, and is stored in the BETY database to
+    # locate the data file.  The data file is stored on the local machine where the download occured.  Because NOAA GEFS is an 
+    # ensemble of 21 different forecast models, each model gets its own data frame.  All of the information is the same for 
+    # each file except for the file name.
+    
     results_list = list()
-    results = list()
+  
     
     for (ens in 1:31) { # i is the ensemble number
       
@@ -453,6 +452,16 @@ process_gridded_noaa_download <- function(lat_list,
       end_date <- forecast_noaa_ens %>%
         dplyr::summarise(max_time = max(time))
       
+      results = data.frame(
+        file = "",                            #Path to the file (added in loop below).
+        host = PEcAn.remote::fqdn(),          #Name of the server where the file is stored
+        mimetype = "application/x-netcdf",    #Format the data is saved in
+        formatname = "CF Meteorology",        #Type of data
+        startdate = paste0(format(forecast_date, "%Y-%m-%dT%H:%M:00")),    #starting date and time, down to the second
+        enddate = paste0(format(end_date$max_time, "%Y-%m-%dT%H:%M:00")),        #ending date and time, down to the second
+        dbfile.name = "NOAA_GEFS_downscale",            #Source of data (ensemble number will be added later)
+        stringsAsFactors = FALSE
+      )
       
       identifier = paste("NOAA_GEFS", site_id, ens_name, format(forecast_date, "%Y-%m-%dT%H:%M"), 
                          format(end_date$max_time, "%Y-%m-%dT%H:%M"), sep="_")     
@@ -476,10 +485,14 @@ process_gridded_noaa_download <- function(lat_list,
                               format(end_date$max_time, "%Y-%m-%dT%H:%M"), sep="_")
         
         fname_ds <- paste0(identifier_ds, ".nc")
-        ensemble_folder_ds = file.path(output_directory, identifier)
-        output_file_ds <- file.path(ensemble_folder,fname)
-        results$file <- fname_ds
-        results$dbfile.name <- output_file_ds
+        ensemble_folder_ds = file.path(output_directory, identifier_ds)
+        output_file_ds <- file.path(ensemble_folder_ds,fname_ds)
+        
+        if (!dir.exists(ensemble_folder_ds)) {
+          dir.create(ensemble_folder_ds, recursive=TRUE, showWarnings = FALSE)} 
+        
+        results$file = output_file_ds
+        results$dbfile.name = fname_ds
         results_list[[ens]] <- results
         
         #Run downscaling
