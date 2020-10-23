@@ -5,17 +5,17 @@
 #' @param forecast_time
 #' @param forecast_date
 #' @param model_name_raw
+#' @param num_cores
 #' @param output_directory
 #'
 #' @return
 #' @export
 #'
 #' @examples
-noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date ,model_name_raw, output_directory) {
+noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date ,model_name_raw, output_directory, end_hr) {
   
   
-  download_neon_grid <- function(ens_index, location, directory, hours_char, cycle, base_filename1, vars,
-                                 max_file_size, max_file_size_f000,working_directory){
+  download_neon_grid <- function(ens_index, location, directory, hours_char, cycle, base_filename1, vars,working_directory){
     #for(j in 1:31){
     if(ens_index == 1){
       base_filename2 <- paste0("gec00",".t",cycle,"z.pgrb2a.0p50.f")
@@ -35,6 +35,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
       file_name <- paste0(base_filename2, curr_hours[i])
       
       destfile <- paste0(working_directory,"/", file_name,".neon.grib")
+      
       if(file.exists(destfile)){
         
         fsz <- file.info(destfile)$size
@@ -48,15 +49,14 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
           download_file <- TRUE
         }
         close(gribf)
-        
-  
+      
       }else{
         download_file <- TRUE
       }
       
       if(download_file){
         
-        out <- tryCatch(download.file(paste0(base_filename1, file_name, vars, location, directory),
+        out <- tryCatch(utils::download.file(paste0(base_filename1, file_name, vars, location, directory),
                                       destfile = destfile, quiet = TRUE),
                         error = function(e){
                           warning(paste(e$message, "skipping", file_name),
@@ -74,7 +74,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   
   curr_time <- lubridate::with_tz(Sys.time(), tzone = "UTC")
   curr_date <- lubridate::as_date(curr_time)
-  
+
   noaa_page <- readLines('https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/')
   
   potential_dates <- NULL
@@ -85,6 +85,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
       potential_dates <- c(potential_dates, dates)
     }
   }
+  
   
   last_cycle_page <- readLines(paste0('https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/gefs.', dplyr::last(potential_dates)))
   
@@ -101,7 +102,11 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   
   potential_dates <- lubridate::as_date(potential_dates)
   
+  potential_dates = potential_dates[which(potential_dates == forecast_date)]
   
+  if(length(potential_dates) == 0){PEcAn.logger::logger.error("Forecast Date not available")}
+
+   
   location <- paste0("&subregion=&leftlon=",
                      floor(min(lon_list)),
                      "&rightlon=",
@@ -114,61 +119,62 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   base_filename1 <- "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p50a.pl?file="
   vars <- "&lev_10_m_above_ground=on&lev_2_m_above_ground=on&lev_surface=on&lev_entire_atmosphere=on&var_APCP=on&var_DLWRF=on&var_DSWRF=on&var_PRES=on&var_RH=on&var_TMP=on&var_UGRD=on&var_VGRD=on&var_TCDC=on"
   
-  
-  if(!(forecast_date %in% potential_dates)){PEcAn.logger::logger.error("Forecast Date Not Available")}
-  
-  forecast_date <- lubridate::as_date(forecast_date)
-  cycle <- forecast_time
-  
-  if(cycle < 10) cycle <- paste0("0",cycle)
-  
-  model_date_hour_dir <- file.path(model_dir,forecast_date,cycle)
-  if(!dir.exists(model_date_hour_dir)){
-    dir.create(model_date_hour_dir, recursive=TRUE, showWarnings = FALSE)
-  }
-  
-  new_download <- TRUE
-  
-  if(new_download){
+  for(i in 1:length(potential_dates)){
     
-    print(paste("Downloading", forecast_date, cycle))
+    forecast_date <- lubridate::as_date(potential_dates[i])
+    forecast_hours = as.numeric(forecast_time) 
     
-    if(cycle == "00"){
-      hours <- c(seq(0, 240, 3),seq(246, 840 , 6))
-    }else{
-      hours <- c(seq(0, 240, 3),seq(246, 384 , 6))
+  
+    for(j in 1:length(forecast_hours)){
+      cycle <- forecast_hours[j]
+      
+      if(cycle < 10) cycle <- paste0("0",cycle)
+      
+      model_date_hour_dir <- file.path(model_dir,forecast_date,cycle)
+      if(!dir.exists(model_date_hour_dir)){
+        dir.create(model_date_hour_dir, recursive=TRUE, showWarnings = FALSE)
+      }
+      
+      new_download <- TRUE
+      
+      if(new_download){
+        
+        print(paste("Downloading", forecast_date, cycle))
+        
+        if(cycle == "00"){
+          hours <- c(seq(0, 240, 3),seq(246, min(end_hr, 384), 6))
+        }else{
+          hours <- c(seq(0, 240, 3),seq(246, min(end_hr, 840) , 6))
+        }
+        hours_char <- hours
+        hours_char[which(hours < 100)] <- paste0("0",hours[which(hours < 100)])
+        hours_char[which(hours < 10)] <- paste0("0",hours_char[which(hours < 10)])
+        curr_year <- lubridate::year(forecast_date)
+        curr_month <- lubridate::month(forecast_date)
+        if(curr_month < 10) curr_month <- paste0("0",curr_month)
+        curr_day <- lubridate::day(forecast_date)
+        if(curr_day < 10) curr_day <- paste0("0",curr_day)
+        curr_date <- paste0(curr_year,curr_month,curr_day)
+        directory <- paste0("&dir=%2Fgefs.",curr_date,"%2F",cycle,"%2Fatmos%2Fpgrb2ap5")
+        
+        ens_index <- 1:31
+        
+        parallel::mclapply(X = ens_index,
+                           FUN = download_neon_grid,
+                           location,
+                           directory,
+                           hours_char,
+                           cycle,
+                           base_filename1,
+                           vars,
+                           working_directory = model_date_hour_dir,
+                           mc.cores = 1)
+      }else{
+        print(paste("Existing", forecast_date, cycle))
+      }
     }
-    hours_char <- hours
-    hours_char[which(hours < 100)] <- paste0("0",hours[which(hours < 100)])
-    hours_char[which(hours < 10)] <- paste0("0",hours_char[which(hours < 10)])
-    curr_year <- lubridate::year(forecast_date)
-    curr_month <- lubridate::month(forecast_date)
-    if(curr_month < 10) curr_month <- paste0("0",curr_month)
-    curr_day <- lubridate::day(forecast_date)
-    if(curr_day < 10) curr_day <- paste0("0",curr_day)
-    curr_date <- paste0(curr_year,curr_month,curr_day)
-    directory <- paste0("&dir=%2Fgefs.",curr_date,"%2F",cycle,"%2Fatmos%2Fpgrb2ap5")
-    
-    ens_index <- 1:31
-    
-    parallel::mclapply(X = ens_index,
-                       FUN = download_neon_grid,
-                       location,
-                       directory,
-                       hours_char,
-                       cycle,
-                       base_filename1,
-                       vars,
-                       max_file_size,
-                       max_file_size_f000,
-                       working_directory = model_date_hour_dir,
-                       mc.cores = 1)
-  }else{
-    print(paste("Existing", forecast_date, cycle))
   }
-} #noaa_grid_download 
-
-
+}
 #' Extract and temporally downscale points from downloaded grid files
 #'
 #' @param lat_list

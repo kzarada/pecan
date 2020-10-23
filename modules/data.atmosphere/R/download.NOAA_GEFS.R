@@ -22,10 +22,14 @@ download.NOAA_GEFS <- function(site_id,
                                lon.in,
                                outfolder,
                                start_date= Sys.Date(),
-                               forecast_time = "0",
-                               end_date = NULL,
+                               end_date = start_date + lubridate::days(16),
                                downscale = TRUE,
                                overwrite = FALSE){
+  
+  forecast_date = as.Date(start_date)
+  forecast_time = (lubridate::hour(start_date) %/% 6)*6
+
+  end_hr = (as.numeric(difftime(end_date, start_date, units = 'hours')) %/% 6)*6
   
   model_name <- "NOAAGEFS_6hr"
   model_name_ds <-"NOAAGEFS_1hr" #Downscaled NOAA GEFS
@@ -38,8 +42,9 @@ download.NOAA_GEFS <- function(site_id,
     
   PEcAn.data.atmosphere::noaa_grid_download(lat_list = lat.in,
                                             lon_list = lon.in,
-                                            forecast_time = "0",
-                                            forecast_date = start_date,
+                                            end_hr = end_hr,
+                                            forecast_time = forecast_time,
+                                            forecast_date = forecast_date,
                                             model_name_raw = model_name_raw,
                                             output_directory = outfolder)
     
@@ -48,8 +53,8 @@ download.NOAA_GEFS <- function(site_id,
                                                       site_id = site_id,
                                                       downscale = downscale,
                                                       overwrite = overwrite,
-                                                      forecast_date = as.Date(start_date),
-                                                      forecast_time = "0",
+                                                      forecast_date = forecast_date,
+                                                      forecast_time = forecast_time,
                                                       model_name = model_name,
                                                       model_name_ds = model_name_ds,
                                                       model_name_raw = model_name_raw,

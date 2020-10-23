@@ -12,8 +12,7 @@ download.NOAA_GEFS(
   lon.in,
   outfolder,
   start_date = Sys.Date(),
-  forecast_time = "0",
-  end_date = NULL,
+  end_date = start_date + lubridate::days(16),
   downscale = TRUE,
   overwrite = FALSE
 )
