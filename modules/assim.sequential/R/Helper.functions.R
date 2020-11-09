@@ -7,6 +7,7 @@
 #' @return A list the same dimension as X, with each column of each dataframe
 #'   modified by replacing outlier points with the column median
 #' @export
+#' @importFrom magrittr %>%
 #'
 outlier.detector.boxplot<-function(X) {
   X <- X  %>% 
@@ -81,10 +82,11 @@ SDA_control <-
 #'
 #' @param settings pecan xml settings where state variables have the scaling_factor tag
 #' @param X Any Matrix with column names as variable names
+#' @param multiply TRUE = multiplication, FALSE = division
 #' @description This function uses a set of scaling factors defined in the pecan XML to scale a given matrix
-#' @return
+#' @return rescaled Matrix
 #' @export
-#'
+#' @importFrom magrittr %>%
 rescaling_stateVars <- function(settings, X, multiply=TRUE) {
   
   FUN <- ifelse(multiply, .Primitive('*'), .Primitive('/'))
@@ -94,7 +96,7 @@ rescaling_stateVars <- function(settings, X, multiply=TRUE) {
   scaling.factors <-
     settings$state.data.assimilation$state.variables %>%
     purrr::map('scaling_factor') %>%
-    setNames(settings$state.data.assimilation$state.variables %>%
+    stats::setNames(settings$state.data.assimilation$state.variables %>%
                purrr::map('variable.name')) %>%
     purrr::discard(is.null)
   
