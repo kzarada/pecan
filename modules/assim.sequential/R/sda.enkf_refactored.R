@@ -33,8 +33,8 @@ sda.enkf <- function(settings,
                                   debug=FALSE,
                                   pause=FALSE),
                      ...) {
-
-
+  
+  
   if (control$debug) browser()
   ###-------------------------------------------------------------------###
   ### read settings                                                     ###
@@ -103,17 +103,17 @@ sda.enkf <- function(settings,
   ###-------------------------------------------------------------------###
   ### Splitting/Cutting the mets to the start and the end  of SDA       ###
   ###-------------------------------------------------------------------### 
- 
+  
   if(!no_split){ 
     for(i in seq_along(settings$run$inputs$met$path)){
       
       ### model specific split inputs
       settings$run$inputs$met$path[[i]] <- do.call(my.split_inputs, 
-                                                  args = list(settings = settings, 
-                                                              start.time = start.cut, 
-                                                              stop.time = lubridate::ymd_hms(settings$state.data.assimilation$end.date, truncated = 3, tz="UTC"),
-                                                              inputs =  settings$run$inputs$met$path[[i]],
-                                                              overwrite=T)) 
+                                                   args = list(settings = settings, 
+                                                               start.time = start.cut, 
+                                                               stop.time = lubridate::ymd_hms(settings$state.data.assimilation$end.date, truncated = 3, tz="UTC"),
+                                                               inputs =  settings$run$inputs$met$path[[i]],
+                                                               overwrite=T)) 
     }
   }
   if (control$debug) browser()
@@ -149,8 +149,8 @@ sda.enkf <- function(settings,
   FORECAST    <- ANALYSIS <- list()
   enkf.params <- list()
   #The aqq and bqq are shape parameters estimated over time for the proccess covariance. #see GEF help
-  aqq         <- list()
-  bqq         <- list()
+  aqq         <- NULL
+  bqq         <- numeric(nt + 1)
   ##### Creating matrices that describe the bounds of the state variables
   ##### interval is remade everytime depending on the data at time t
   ##### state.interval stays constant and converts new.analysis to be within the correct bounds
@@ -171,9 +171,9 @@ sda.enkf <- function(settings,
   } else{
     load(file.path(settings$outdir, "ensemble_weights.Rdata"))  ## loads ensemble.samples
   }
-    
-
-
+  
+  
+  
   #Generate parameter needs to be run before this to generate the samples. This is hopefully done in the main workflow.
   if(!file.exists(file.path(settings$outdir, "samples.Rdata"))) PEcAn.logger::logger.severe("samples.Rdata cannot be found. Make sure you generate samples by running the get.parameter.samples function before running SDA.")
   load(file.path(settings$outdir, "samples.Rdata"))  ## loads ensemble.samples
@@ -216,7 +216,7 @@ sda.enkf <- function(settings,
   }else{
     t = 1
   }
-
+  
   ###------------------------------------------------------------------------------------------------###
   ### loop over time                                                                                 ###
   ###------------------------------------------------------------------------------------------------###---- 
@@ -232,7 +232,7 @@ sda.enkf <- function(settings,
     # Why t>1 is different ? Because the ensemble.write.config would be different. It has the restart argument and it needs it's own setup.
     # Also, assumes that sda has gotten through at least one analysis step
     # plus in t>1 we split the met data for the models that they need that.
-
+    
     ## First question, do we have forecast output to compare to our data?
     ## If not, need to run forecast
     ## using paste because dont want to confuse with ensemble ids
@@ -247,7 +247,7 @@ sda.enkf <- function(settings,
         sum(unlist(sapply(
           X = run.id,
           FUN = function(x){
-            pattern = paste0(x, '/*.nc$')[1] #this wasn't counting them properly for my runs? 
+            pattern = paste0(x, '/*.nc$')[1]
             grep(
               pattern = pattern,
               x = list.files(file.path(outdir,x), "*.nc$", recursive = F, full.names = T)
@@ -325,10 +325,6 @@ sda.enkf <- function(settings,
       
       
     }
-  
-    
-    #------------------------------------------- Reading the output
-    #--- set the broken ones as NULL
     #------------------------------------------- Reading the output
     X_tmp <- vector("list", 2)
     X <- list()
@@ -345,7 +341,6 @@ sda.enkf <- function(settings,
         )
       )
       
-    
       # states will be in X, but we also want to carry some deterministic relationships to write_restart
       # these will be stored in params
       X[[i]]      <- X_tmp[[i]]$X
@@ -370,32 +365,12 @@ sda.enkf <- function(settings,
     #--- Reformating X
     X <- do.call(rbind, X)
     
-    #--- Unit Change if needed
-    unit.vars <- sapply(settings$state.data.assimilation$state.variables, '[[', "unit")
-    names(unit.vars) <- input.vars
-    unit.vars <- plyr::compact(unit.vars)
     
-    standards <- PEcAn.utils::standard_vars%>% 
-      dplyr::select(Variable.Name, Units) %>% 
-      dplyr::filter(Variable.Name %in% names(unit.vars)) 
-    
-    units.index = which(dimnames(X)[[2]] %in% names(unit.vars))
-    for(i in 1:length(units.index)){
-      
-      X[,units.index[i]] <- PEcAn.utils::misc.convert(X[,units.index[i]], as.character(standards$Units[i]), unit.vars[[i]][1])
-      
-    }
-    
-    if(length(units.index) > 0){PEcAn.logger::logger.warn("Changing units of", names(unit.vars), "to", unit.vars)}
-    #end unit change 
-    
-    FORECAST[[t]] <- X
-    mu.f <- colMeans(X)
-    Pf <- cov(X)
     
     if(sum(X,na.rm=T) == 0){
       logger.severe(paste('NO FORECAST for',obs.times[t],'Check outdir logfiles or read restart. Do you have the right variable names?'))
     }
+    
     ###-------------------------------------------------------------------###
     ###  preparing OBS                                                    ###
     ###-------------------------------------------------------------------###
@@ -422,12 +397,11 @@ sda.enkf <- function(settings,
       }
       # droping the ones that their means are zero 
       na.obs.mean <- which(is.na(unlist(obs.mean[[t]][choose])))
-      na.obs.cov <- which(is.na(unlist(obs.cov[[t]][choose])))
-      if (length(na.obs.mean) > 0) choose <- choose [-na.obs.mean]
-      if (length(na.obs.cov) > 0) choose.cov <- choose[-na.obs.cov]
+      if (length(na.obs.mean) > 0)
+        choose <- choose [-na.obs.mean]
       
       Y <- unlist(obs.mean[[t]][choose])
-    
+      
       R <- as.matrix(obs.cov[[t]][choose.cov,choose.cov])
       R[is.na(R)]<-0.1
       
@@ -470,6 +444,7 @@ sda.enkf <- function(settings,
                                        obs.cov=obs.cov)
       
       #Reading back mu.f/Pf and mu.a/Pa
+      FORECAST[[t]] <- X
       #Forecast
       mu.f <- enkf.params[[t]]$mu.f
       Pf <- enkf.params[[t]]$Pf
@@ -531,7 +506,7 @@ sda.enkf <- function(settings,
       }
       enkf.params[[t]] <- list(mu.f = mu.f, Pf = Pf, mu.a = mu.a, Pa = Pa)
     }
-     ###-------------------------------------------------------------------###
+    ###-------------------------------------------------------------------###
     ### adjustement/update state matrix                                   ###
     ###-------------------------------------------------------------------###---- 
     
