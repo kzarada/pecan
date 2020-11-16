@@ -178,7 +178,7 @@
     <source>BADM</source>
    </poolinitcond>
    <met>
-    <source>NOAA_GEFS_downscale</source>
+    <source>NOAA_GEFS</source>
     <output>SIPNET</output>
    </met>
   </inputs>
