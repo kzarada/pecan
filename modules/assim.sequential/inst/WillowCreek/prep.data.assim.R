@@ -28,7 +28,7 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
   
   #Reading the columns we need
   cols <- grep(paste0("_*_f$"), colnames(gapfilled.vars), value = TRUE)
-  gapfilled.vars <- gapfilled.vars %>% dplyr::select(Date=date, Flag,cols)
+  gapfilled.vars <- gapfilled.vars %>% dplyr::select(Date=date...11, Flag = Flag...10,cols)
   
   #Creating NEE and LE filled output 
   gapfilled.vars.out <- gapfilled.vars %>% dplyr::select(-Flag) %>% 
@@ -90,7 +90,7 @@ prep.data.assim <- function(start_date, end_date, numvals, vars, data.len = 3, s
         mutate(Interval = lubridate::round_date(Date, "1 hour")) %>%
         dplyr::select(-Date)
     }) %>%
-    split(.$Interval) %>%
+    split(.$Interval...202) %>%
     map(function(row) {
       
       #fidning the interval cols / taking them out 
