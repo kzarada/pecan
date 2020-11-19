@@ -49,7 +49,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
           download_file <- TRUE
         }
         close(gribf)
-      
+        
       }else{
         download_file <- TRUE
       }
@@ -57,7 +57,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
       if(download_file){
         
         out <- tryCatch(utils::download.file(paste0(base_filename1, file_name, vars, location, directory),
-                                      destfile = destfile, quiet = TRUE),
+                                             destfile = destfile, quiet = TRUE),
                         error = function(e){
                           warning(paste(e$message, "skipping", file_name),
                                   call. = FALSE)
@@ -74,7 +74,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   
   curr_time <- lubridate::with_tz(Sys.time(), tzone = "UTC")
   curr_date <- lubridate::as_date(curr_time)
-
+  
   noaa_page <- readLines('https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/')
   
   potential_dates <- NULL
@@ -105,8 +105,8 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
   potential_dates = potential_dates[which(potential_dates == forecast_date)]
   
   if(length(potential_dates) == 0){PEcAn.logger::logger.error("Forecast Date not available")}
-
-   
+  
+  
   location <- paste0("&subregion=&leftlon=",
                      floor(min(lon_list)),
                      "&rightlon=",
@@ -124,7 +124,7 @@ noaa_grid_download <- function(lat_list, lon_list, forecast_time, forecast_date 
     forecast_date <- lubridate::as_date(potential_dates[i])
     forecast_hours = as.numeric(forecast_time) 
     
-  
+    
     for(j in 1:length(forecast_hours)){
       cycle <- forecast_hours[j]
       
@@ -440,7 +440,7 @@ process_gridded_noaa_download <- function(lat_list,
     # each file except for the file name.
     
     results_list = list()
-  
+    
     
     for (ens in 1:31) { # i is the ensemble number
       
@@ -505,7 +505,7 @@ process_gridded_noaa_download <- function(lat_list,
         noaaGEFSpoint::temporal_downscale(input_file = output_file, output_file = output_file_ds, overwrite = TRUE, hr = 1)
       }
       
-     
+      
     }
   }
   return(results_list)
