@@ -316,7 +316,7 @@ sda.enkf <- function(settings,
       
       run.id <- outconfig$runs$id
       ensemble.id <- outconfig$ensemble.id
-      if(t==1) inputs <- outconfig$samples$met # for any time after t==1 the met is the splitted met
+      if(t==1) inputs <- outconfig$samples$met # for any time after t==1 the met is the splited met
       
       if(control$debug) browser()
       #-------------------------------------------- RUN
@@ -355,7 +355,7 @@ sda.enkf <- function(settings,
       "*.nc$",
       recursive = TRUE,
       full.names = TRUE)
-    files <-  files[grep(pattern = "SDA*", files, invert = TRUE)]
+    files <-  files[grep(pattern = "SDA*", basename(files), invert = TRUE)]
     
     
     file.rename(files, 
@@ -365,6 +365,10 @@ sda.enkf <- function(settings,
     #--- Reformating X
     X <- do.call(rbind, X)
     
+    
+    #unit scaling if needed 
+    
+    X <-  rescaling_stateVars(settings, X, multiply = TRUE)
     
     
     if(sum(X,na.rm=T) == 0){
@@ -541,6 +545,7 @@ sda.enkf <- function(settings,
     
     new.state  <- as.data.frame(analysis)
     ANALYSIS[[t]] <- analysis
+    FORECAST[[t]] <- X
     
     ###-------------------------------------------------------------------###
     ### save outputs                                                      ###

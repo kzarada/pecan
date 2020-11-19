@@ -30,8 +30,8 @@ download_US_WCr_met <- function(start_date, end_date) {
   #Constructing the date based on the columns we have
   #Converting the WCR data from CST to UTC 
   raw.data$date <-lubridate::with_tz(as.POSIXct(paste0(raw.data$V1,"/",raw.data$V2,"/",raw.data$V3," ", raw.data$V4 %>% as.integer(), ":",(raw.data$V4-as.integer(raw.data$V4))*60),
-                             format="%Y/%m/%d %H:%M", tz="US/Central"), tz = "UTC")
- 
+                                                format="%Y/%m/%d %H:%M", tz="US/Central"), tz = "UTC")
+  
   
   
   start_date <- as.POSIXct(start_date, format = "%Y-%m-%d", tz = "UTC")
@@ -43,7 +43,7 @@ download_US_WCr_met <- function(start_date, end_date) {
   
   #Colnames changed
   colnames(raw.data) <- c("Year", "Month", "Day", "Hour", "DoY", "FjDay", "Tair", "rH", "Tsoil", "Rg", "date")
-
+  
   return(raw.data)
 }
 

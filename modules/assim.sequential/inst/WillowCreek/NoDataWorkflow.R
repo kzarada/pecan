@@ -18,7 +18,7 @@ plan(multisession)
 
 outputPath <- "/projectnb/dietzelab/kzarada/US_WCr_SDA_output/NoData/"
 nodata <- TRUE
-restart <-FALSE
+restart <- FALSE
 days.obs <- 1  #how many of observed data to include -- not including today
 setwd(outputPath)
 
@@ -49,44 +49,44 @@ c(
   con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
   
   
-  #   
-  # all.previous.sims <- list.dirs(outputPath, recursive = F)
-  # if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
-  # 
-  #   tryCatch({
-  #     # Looking through all the old simulations and find the most recent
-  #     all.previous.sims <- all.previous.sims %>%
-  #       map(~ list.files(path = file.path(.x, "SDA"))) %>%
-  #       setNames(all.previous.sims) %>%
-  #       discard( ~ !"sda.output.Rdata" %in% .x) # I'm throwing out the ones that they did not have a SDA output
-  # 
-  #     last.sim <-
-  #       names(all.previous.sims) %>%
-  #       map_chr( ~ strsplit(.x, "_")[[1]][5]) %>%
-  #       map_dfr(~ db.query(
-  #         query = paste("SELECT * FROM workflows WHERE id =", .x),
-  #         con = con
-  #       ) %>%
-  #        mutate(ID=.x)) %>%
-  #       mutate(start_date = as.Date(start_date)) %>%
-  #       arrange(desc(start_date), desc(ID)) %>%
-  #       head(1)
-  #     # pulling the date and the path to the last SDA
-  #     restart.path <-grep(last.sim$ID, names(all.previous.sims), value = T)
-  #     sda.start <- last.sim$start_date + lubridate::days(1)
-  #   },
-  #   error = function(e) {
-  #     restart.path <- NULL
-  #     sda.start <- Sys.Date() - 1
-  #     PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
-  #   })
-  # 
-  #   # if there was no older sims
-  #   if (is.na(sda.start))
-  #     sda.start <- Sys.Date() - 9
-  # }
-sda.start <- Sys.Date()
-sda.end <- sda.start + lubridate::days(3)
+     
+   all.previous.sims <- list.dirs(outputPath, recursive = F)
+   if (length(all.previous.sims) > 0 & !inherits(con, "try-error")) {
+   
+     tryCatch({
+       # Looking through all the old simulations and find the most recent
+       all.previous.sims <- all.previous.sims %>%
+         map(~ list.files(path = file.path(.x, "SDA"))) %>%
+         setNames(all.previous.sims) %>%
+         discard( ~ !"sda.output.Rdata" %in% .x) # I'm throwing out the ones that they did not have a SDA output
+   
+       last.sim <-
+         names(all.previous.sims) %>%
+         map_chr( ~ strsplit(.x, "_")[[1]][5]) %>%
+         map_dfr(~ db.query(
+           query = paste("SELECT * FROM workflows WHERE id =", .x),
+           con = con
+         ) %>%
+          mutate(ID=.x)) %>%
+         mutate(start_date = as.Date(start_date)) %>%
+         arrange(desc(start_date), desc(ID)) %>%
+         head(1)
+       # pulling the date and the path to the last SDA
+      restart.path <-grep(last.sim$ID, names(all.previous.sims), value = T)
+       sda.start <- last.sim$start_date + lubridate::days(1)
+     },
+     error = function(e) {
+       restart.path <- NULL
+       sda.start <- Sys.Date() - 1
+       PEcAn.logger::logger.warn(paste0("There was a problem with finding the last successfull SDA.",conditionMessage(e)))
+     })
+   
+     # if there was no older sims
+     if (is.na(sda.start))
+       sda.start <- Sys.Date() - 9
+   }
+#sda.start <- Sys.Date()
+sda.end <- sda.start + lubridate::days(5)
 #-----------------------------------------------------------------------------------------------
 #------------------------------------------ Download met and flux ------------------------------
 #-----------------------------------------------------------------------------------------------
@@ -189,7 +189,7 @@ settings$state.data.assimilation$end.date <-as.character(last(names(obs.mean)))
 #--------------------------------- Restart -------------------------------------
 # --------------------------------------------------------------------------------------------------
 
-if(restart == TRUE){
+ if(restart == TRUE){
   if(!dir.exists("SDA")) dir.create("SDA",showWarnings = F)
   
   #Update the SDA Output to just have last time step 
@@ -201,13 +201,12 @@ if(restart == TRUE){
   # +24 because it's hourly now and we want the next day as the start 
   if(length(temp$ANALYSIS) > 1){
     
-    for(i in 1:days.obs + 1){ 
+     for(i in 1:days.obs + 1){ 
       temp$ANALYSIS[[i]] <- temp$ANALYSIS[[i + 24]]
     }
     for(i in rev((days.obs + 2):length(temp$ANALYSIS))){ 
       temp$ANALYSIS[[i]] <- NULL
     }
-    
     
     for(i in 1:days.obs + 1){ 
       temp$FORECAST[[i]] <- temp$FORECAST[[i + 24]]
@@ -236,7 +235,7 @@ if(restart == TRUE){
   
   temp1<- new.env()
   list2env(temp, envir = temp1)
-  save(list = c("ANALYSIS", 'FORECAST', "enkf.params", "ensemble.id", "ensemble.samples", 'inputs', 'new.params', 'new.state', 'run.id', 'site.locs', 't', 'Viz.output', 'X'),
+  save(list = c("ANALYSIS",  "enkf.params", "ensemble.id", "ensemble.samples", 'inputs', 'new.params', 'new.state', 'run.id', 'site.locs', 't', 'Viz.output', 'X'),
        envir = temp1, 
        file = file.path(settings$outdir, "SDA", "sda.output.Rdata"))  
   
@@ -303,7 +302,7 @@ settings$model$binary = "/usr2/postdoc/istfer/SIPNET/1023/sipnet"
 
 unlink(c('run','out'), recursive = T)
 
-
+#debugonce(PEcAn.assim.sequential::sda.enkf)
 if ('state.data.assimilation' %in% names(settings)) {
   if (PEcAn.utils::status.check("SDA") == 0) {
     PEcAn.utils::status.start("SDA")
