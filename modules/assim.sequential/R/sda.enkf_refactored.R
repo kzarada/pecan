@@ -369,26 +369,13 @@ sda.enkf <- function(settings,
     
     #--- Reformating X
     X <- do.call(rbind, X)
+  
     
-    #--- Unit Change if needed
-    unit.vars <- sapply(settings$state.data.assimilation$state.variables, '[[', "unit")
-    names(unit.vars) <- input.vars
-    unit.vars <- plyr::compact(unit.vars)
+    #unit scaling if needed 
     
-    standards <- PEcAn.utils::standard_vars%>% 
-      dplyr::select(Variable.Name, Units) %>% 
-      dplyr::filter(Variable.Name %in% names(unit.vars)) 
+    X <-  rescaling_stateVars(settings, X, multiply = TRUE)
     
-    units.index = which(dimnames(X)[[2]] %in% names(unit.vars))
-    for(i in 1:length(units.index)){
-      
-      X[,units.index[i]] <- PEcAn.utils::misc.convert(X[,units.index[i]], as.character(standards$Units[i]), unit.vars[[i]][1])
-      
-    }
-    
-    if(length(units.index) > 0){PEcAn.logger::logger.warn("Changing units of", names(unit.vars), "to", unit.vars)}
-    #end unit change 
-    
+
     FORECAST[[t]] <- X
     mu.f <- colMeans(X)
     Pf <- cov(X)

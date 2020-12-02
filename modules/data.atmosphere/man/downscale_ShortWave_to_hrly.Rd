@@ -4,25 +4,18 @@
 \alias{downscale_ShortWave_to_hrly}
 \title{Downscale shortwave to hourly}
 \usage{
-downscale_ShortWave_to_hrly(
-  debiased,
-  time0,
-  time_end,
-  lat,
-  lon,
-  output_tz = "UTC"
-)
+downscale_ShortWave_to_hrly(df, lat, lon, hr = 1)
 }
 \arguments{
+\item{lat, }{lat of site}
+
+\item{lon, }{long of site}
+
 \item{debiased, }{data frame of variables}
 
 \item{time0, }{first timestep}
 
 \item{time_end, }{last time step}
-
-\item{lat, }{lat of site}
-
-\item{lon, }{long of site}
 
 \item{output_tz, }{output timezone}
 }

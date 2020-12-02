@@ -88,6 +88,7 @@ c(
   }
   #to manually change start date 
   #sda.start <-  as.POSIXct("2019-06-20", tz = "UTC")
+  sda.start = Sys.Date()
   sda.end <- sda.start + lubridate::days(2)
   
   # Finding the right end and start date
@@ -203,11 +204,13 @@ c(
   
   pad.prep <- obs.raw %>%
     tidyr::complete(Date = date) %>%
+    filter(Date %in% date) %>% 
     mutate(means = NA, covs = NA) %>%
     dplyr::select(Date, means, covs) %>%
-    dynutils::tibble_as_list()
+    dynutils::tibble_as_list() 
   
   names(pad.prep) <-date
+  
   
 
   #Add in LAI info 
@@ -284,74 +287,74 @@ c(
   # Do conversions
   
   ######### Check for input files and insert paths #############
-  con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
-  
-  input_check <- PEcAn.DB::dbfile.input.check(
-    siteid=settings$run$site$id %>% as.character(),
-    startdate = settings$run$start.date %>% as.Date,
-    enddate = settings$run$end.date %>% as.Date,
-    parentid = NA,
-    mimetype="application/x-netcdf",
-    formatname="CF Meteorology",
-    con,
-    hostname = PEcAn.remote::fqdn(),
-    exact.dates = TRUE,
-    pattern = "NOAA_GEFS_downscale",
-    return.all=TRUE
-  ) 
-  
-clim_check = list() 
-for(i in 1:length(input_check$id)){
-  clim_check[[i]] = file.path(PEcAn.DB::dbfile.input.check(
-  siteid=settings$run$site$id %>% as.character(),
-  startdate = settings$run$start.date %>% as.Date,
-  enddate = settings$run$end.date %>% as.Date,
-  parentid = input_check$container_id[i],
-  mimetype="text/csv",
-  formatname="Sipnet.climna",
-  con,
-  hostname = PEcAn.remote::fqdn(),
-  exact.dates = TRUE,
-  pattern = "NOAA_GEFS_downscale",
-  return.all=TRUE
-  )$file_path, PEcAn.DB::dbfile.input.check(
-    siteid=settings$run$site$id %>% as.character(),
-    startdate = settings$run$start.date %>% as.Date,
-    enddate = settings$run$end.date %>% as.Date,
-    parentid = input_check$container_id[i],
-    mimetype="text/csv",
-    formatname="Sipnet.climna",
-    con,
-    hostname = PEcAn.remote::fqdn(),
-    exact.dates = TRUE,
-    pattern = "NOAA_GEFS_downscale",
-    return.all=TRUE
-  )$file_name)} 
-  
+#   con <-try(PEcAn.DB::db.open(settings$database$bety), silent = TRUE)
+#   
+#   input_check <- PEcAn.DB::dbfile.input.check(
+#     siteid=settings$run$site$id %>% as.character(),
+#     startdate = settings$run$start.date %>% as.Date,
+#     enddate = settings$run$end.date %>% as.Date,
+#     parentid = NA,
+#     mimetype="application/x-netcdf",
+#     formatname="CF Meteorology",
+#     con,
+#     hostname = PEcAn.remote::fqdn(),
+#     exact.dates = TRUE,
+#     pattern = "NOAA_GEFS_downscale",
+#     return.all=TRUE
+#   ) 
+#   
+# clim_check = list() 
+# for(i in 1:length(input_check$id)){
+#   clim_check[[i]] = file.path(PEcAn.DB::dbfile.input.check(
+#   siteid=settings$run$site$id %>% as.character(),
+#   startdate = settings$run$start.date %>% as.Date,
+#   enddate = settings$run$end.date %>% as.Date,
+#   parentid = input_check$container_id[i],
+#   mimetype="text/csv",
+#   formatname="Sipnet.climna",
+#   con,
+#   hostname = PEcAn.remote::fqdn(),
+#   exact.dates = TRUE,
+#   pattern = "NOAA_GEFS_downscale",
+#   return.all=TRUE
+#   )$file_path, PEcAn.DB::dbfile.input.check(
+#     siteid=settings$run$site$id %>% as.character(),
+#     startdate = settings$run$start.date %>% as.Date,
+#     enddate = settings$run$end.date %>% as.Date,
+#     parentid = input_check$container_id[i],
+#     mimetype="text/csv",
+#     formatname="Sipnet.climna",
+#     con,
+#     hostname = PEcAn.remote::fqdn(),
+#     exact.dates = TRUE,
+#     pattern = "NOAA_GEFS_downscale",
+#     return.all=TRUE
+#   )$file_name)} 
+#   
   #If INPUTS already exsits, add id and met path to settings file 
-  
-  if(length(input_check$id) > 0){
-    index_id = list() 
-    index_path = list()
-    for(i in 1:length(input_check$id)){
-      index_id[[i]] = as.character(dbfile.id(type = "Input", 
-                                             file = file.path(input_check$file_path, 
-                                                              input_check$file_name)[i], con = con))#get ids as list
-      
-    }#end i loop for making lists 
-    names(index_id) = sprintf("id%s",seq(1:length(input_check$id))) #rename list 
-    names(clim_check) = sprintf("path%s",seq(1:length(input_check$id)))
-    
-    settings$run$inputs$met$id = index_id
-    settings$run$inputs$met$path = clim_check
-  }
+  # 
+  # if(length(input_check$id) > 0){
+  #   index_id = list() 
+  #   index_path = list()
+  #   for(i in 1:length(input_check$id)){
+  #     index_id[[i]] = as.character(dbfile.id(type = "Input", 
+  #                                            file = file.path(input_check$file_path, 
+  #                                                             input_check$file_name)[i], con = con))#get ids as list
+  #     
+  #   }#end i loop for making lists 
+  #   names(index_id) = sprintf("id%s",seq(1:length(input_check$id))) #rename list 
+  #   names(clim_check) = sprintf("path%s",seq(1:length(input_check$id)))
+  #   
+  #   settings$run$inputs$met$id = index_id
+  #   settings$run$inputs$met$path = clim_check
+  # }
 
   settings <- PEcAn.workflow::do_conversions(settings)          #end if loop for existing inputs  
   
-  if(is_empty(settings$run$inputs$met$path) & length(clim_check)>0){
-    settings$run$inputs$met$id = index_id
-    settings$run$inputs$met$path = clim_check
-  }
+  # if(is_empty(settings$run$inputs$met$path) & length(clim_check)>0){
+  #   settings$run$inputs$met$id = index_id
+  #   settings$run$inputs$met$path = clim_check
+  # }
 
 
   PEcAn.DB::db.close(con)
@@ -501,7 +504,7 @@ for(i in 1:length(input_check$id)){
   
   
   if(restart == FALSE) unlink(c('run','out','SDA'), recursive = T)
-  
+  debugonce(PEcAn.assim.sequential::sda.enkf)
   if ('state.data.assimilation' %in% names(settings)) {
     if (PEcAn.utils::status.check("SDA") == 0) {
       PEcAn.utils::status.start("SDA")

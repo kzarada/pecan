@@ -4,7 +4,7 @@
 \alias{downscale_repeat_6hr_to_hrly}
 \title{Downscale repeat to hourly}
 \usage{
-downscale_repeat_6hr_to_hrly(data.6hr)
+downscale_repeat_6hr_to_hrly(df, varName, hr = 1)
 }
 \arguments{
 \item{data.6hr, }{dataframe of data to be downscaled (Longwave)}
